@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,8 +38,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 
 
-import com.amazonaws.services.ecs.model.ClientException;
-import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.amazonaws.services.ecs.model.*;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -47,28 +47,6 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ecs.AmazonECSClient;
-import com.amazonaws.services.ecs.model.AwsVpcConfiguration;
-import com.amazonaws.services.ecs.model.ContainerDefinition;
-import com.amazonaws.services.ecs.model.ContainerInstance;
-import com.amazonaws.services.ecs.model.ContainerOverride;
-import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
-import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
-import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
-import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
-import com.amazonaws.services.ecs.model.Failure;
-import com.amazonaws.services.ecs.model.KeyValuePair;
-import com.amazonaws.services.ecs.model.LaunchType;
-import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
-import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
-import com.amazonaws.services.ecs.model.LogConfiguration;
-import com.amazonaws.services.ecs.model.NetworkConfiguration;
-import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
-import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
-import com.amazonaws.services.ecs.model.Resource;
-import com.amazonaws.services.ecs.model.RunTaskRequest;
-import com.amazonaws.services.ecs.model.RunTaskResult;
-import com.amazonaws.services.ecs.model.StopTaskRequest;
-import com.amazonaws.services.ecs.model.TaskOverride;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -282,6 +260,20 @@ class ECSService {
 
             return null;
         }
+    }
+
+    public boolean isTaskRunning(ECSCloud cloud, String taskArn) {
+        AmazonECSClient client = getAmazonECSClient();
+        DescribeTasksRequest request = new DescribeTasksRequest();
+        request.setCluster(cloud.getCluster());
+        request.setTasks(Arrays.asList(taskArn));
+
+        DescribeTasksResult result = client.describeTasks(request);
+        LOGGER.log(Level.INFO,"Task Status: "+ result.toString());
+        if (!result.getTasks().isEmpty() && result.getTasks().get(0).getLastStatus().equals("RUNNING"))
+            return true;
+        else
+            return false;
     }
 
     private String fullQualifiedTemplateName(final ECSCloud cloud, final ECSTaskTemplate template) {

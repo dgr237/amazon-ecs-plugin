@@ -26,20 +26,26 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.*;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
+import hudson.Launcher;
+import hudson.console.ModelHyperlinkNote;
 import hudson.model.Descriptor;
+import hudson.model.Executor;
+import hudson.model.Messages;
+import hudson.model.Queue;
 import hudson.model.TaskListener;
 import hudson.node_monitors.ResponseTimeMonitor;
-import hudson.slaves.AbstractCloudComputer;
-import hudson.slaves.AbstractCloudSlave;
-import hudson.slaves.ComputerLauncher;
-import hudson.slaves.RetentionStrategy;
+import hudson.slaves.*;
+import jenkins.model.Jenkins;
+import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.Validate;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,26 +56,12 @@ import java.util.logging.Logger;
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
 public class ECSSlave extends AbstractCloudSlave {
-
+    private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
-    @Nonnull
-    private final ECSCloud cloud;
-
-    /**
-     * AWS Resource Name (ARN) of the ECS Cluster.
-     */
-    private String clusterArn;
-    /**
-     * AWS Resource Name (ARN) of the ECS Task Definition.
-     */
-    private String taskDefinitonArn;
-    /**
-     * AWS Resource Name (ARN) of the ECS Task.
-     */
-    @CheckForNull
-    private String taskArn;
-
+    private final String cloudName;
+    private final ECSTaskTemplate template;
+    private transient Set<Queue.Executable> executables = new HashSet<>();
     private static RetentionStrategy deleteAfterFinished = new RetentionStrategy<ECSComputer>() {
         @Override
         public boolean isManualLaunchAllowed(ECSComputer c) {
@@ -87,15 +79,15 @@ public class ECSSlave extends AbstractCloudSlave {
             // In this case, we are going to tell Jenkins that it can no longer accept
             // any new tasks, which will cause it to create a new node for any subsequent
             // tasks.
-            if(!c.isIdle() ) {
+            if (!c.isIdle()) {
                 LOGGER.log(Level.FINE, "Computer is not idle; setting it to no longer accept tasks.");
-                c.setAcceptingTasks( false );
+                c.setAcceptingTasks(false);
             }
 
             // If the computer IS idle AND it is no longer accepting tasks, then it has
             // already had a task and completed it.  In this case, we are going to terminate
             // the node.
-            if(c.isIdle() && !c.isAcceptingTasks() && node != null) {
+            if (c.isIdle() && !c.isAcceptingTasks() && node != null) {
                 LOGGER.log(Level.FINE, "Computer is idle and not accepting tasks; terminating it.");
                 try {
                     node.terminate();
@@ -124,34 +116,22 @@ public class ECSSlave extends AbstractCloudSlave {
         }
 
     };
+    private String taskArn;
+    private String taskDefinitonArn;
 
-    public ECSSlave(@Nonnull ECSCloud cloud, @Nonnull String name, @Nullable String remoteFS, @Nullable String labelString, @Nonnull ComputerLauncher launcher) throws Descriptor.FormException, IOException {
-        super(name, "ECS slave", remoteFS, 1, Mode.EXCLUSIVE, labelString, launcher, deleteAfterFinished, Collections.EMPTY_LIST);
-        this.cloud = cloud;
-    }
-
-    public String getClusterArn() {
-        return clusterArn;
-    }
-
-    public String getTaskDefinitonArn() {
-        return taskDefinitonArn;
-    }
-
-    public String getTaskArn() {
-        return taskArn;
-    }
-
-    void setClusterArn(String clusterArn) {
-        this.clusterArn = clusterArn;
-    }
-
-    void setTaskArn(String taskArn) {
-        this.taskArn = taskArn;
-    }
-
-    public void setTaskDefinitonArn(String taskDefinitonArn) {
-        this.taskDefinitonArn = taskDefinitonArn;
+    protected ECSSlave(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
+                       ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
+        super(name,
+                nodeDescription,
+                template.getRemoteFSRoot(),
+                1,
+                Mode.EXCLUSIVE,
+                labelStr,
+                launcher,
+                rs,
+                new ArrayList<NodeProperty<?>>());
+        this.cloudName = cloudName;
+        this.template = template;
     }
 
     @Override
@@ -161,12 +141,192 @@ public class ECSSlave extends AbstractCloudSlave {
 
     @Override
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
-        if (taskArn != null) {
-            cloud.deleteTask(taskArn, clusterArn);
+        LOGGER.log(Level.INFO, "Terminating ECS Task Instance for agent {0}", name);
+        ECSCloud cloud = null;
+        try {
+            cloud = getCloud();
+        } catch (IllegalStateException e) {
+            LOGGER.log(Level.SEVERE, "Unable to terminate agent {}. Cloud may have been removed. There may be leftover tasks", name);
+        }
+
+        //TODO
+        if (taskArn != null && cloud != null) {
+            cloud.deleteTask(taskArn);
         }
     }
 
     public ECSCloud getCloud() {
-        return cloud;
+        Cloud cloud = Jenkins.getInstance().getCloud(getCloudName());
+        if (cloud instanceof ECSCloud) {
+            return (ECSCloud) cloud;
+        } else {
+            throw new IllegalStateException(getClass().getName() + " can be launched only by instances of " + ECSCloud.class.getName());
+        }
+    }
+
+    Collection<String> getDockerRunCommand() {
+        ECSCloud cloud=getCloud();
+        Collection<String> command = new ArrayList<String>();
+        command.add("-url");
+        command.add(cloud.getJenkinsUrl());
+        String tunnel=cloud.getTunnel();
+        if (StringUtils.isNotBlank(tunnel)) {
+            command.add("-tunnel");
+            command.add(tunnel);
+        }
+        command.add(getComputer().getJnlpMac());
+        command.add(getComputer().getName());
+        return command;
+    }
+
+
+    public static ECSSlave.Builder builder() {
+        return new ECSSlave.Builder();
+    }
+
+    static String getSlaveName(ECSTaskTemplate ecsTaskTemplate) {
+        String randString= RandomStringUtils.random(5,"bcdefghijklmnopqrstuvwxyz0123456789");
+        String name=ecsTaskTemplate.getTemplateName();
+        if(StringUtils.isEmpty(name)) {
+            return String.format("%s-%s",DEFAULT_AGENT_PREFIX,randString);
+        }
+
+        name=name.replaceAll("[ _]","-").toLowerCase();
+        name=name.substring(0, Math.min(name.length(),62-randString.length()));
+        return String.format("%s-%s",name,randString);
+    }
+
+    public String getCloudName() {
+        return cloudName;
+    }
+
+    public ECSTaskTemplate getTemplate() {
+        return template;
+    }
+
+    public void setTaskArn(String taskArn) {
+        this.taskArn = taskArn;
+    }
+
+    public void setTaskDefinitonArn(String taskDefinitonArn) {
+        this.taskDefinitonArn = taskDefinitonArn;
+    }
+
+    public String getTaskArn() {
+        return taskArn;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ECSSlave name: %s", name);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+
+        ECSSlave that = (ECSSlave) o;
+
+        if (cloudName != null ? !cloudName.equals(that.cloudName) : that.cloudName != null) return false;
+        return template != null ? template.equals(that.template) : that.template == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + (cloudName != null ? cloudName.hashCode() : 0);
+        result = 31 * result + (template != null ? template.hashCode() : 0);
+        return result;
+    }
+
+    @Override
+    public Launcher createLauncher(TaskListener listener) {
+        if (template != null) {
+            Executor executor = Executor.currentExecutor();
+            if (executor != null) {
+                Queue.Executable currentExecutable = executor.getCurrentExecutable();
+                if (currentExecutable != null && executables.add(currentExecutable)) {
+                    listener.getLogger().println(String.format("Agent {0} is provisioned from template {1}",
+                            ModelHyperlinkNote.encodeTo("/computer/" + getNodeName(), getNodeName()),
+                            getTemplate().getDisplayName())
+                    );
+                    //listener.getLogger().println(getTemplate().getDescriptionForLogging());
+                }
+            }
+        }
+        return super.createLauncher(listener);
+    }
+
+    protected Object readResolve() {
+        this.executables = new HashSet<>();
+        return this;
+    }
+
+
+    public static class Builder {
+
+        private String name;
+        private String nodeDescription;
+        private ECSTaskTemplate ecsTaskTemplate;
+        private ECSCloud cloud;
+        private String label;
+        private ComputerLauncher computerLauncher;
+        private RetentionStrategy retentionStrategy;
+
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder nodeDescription(String nodeDescription) {
+            this.nodeDescription = nodeDescription;
+            return this;
+        }
+
+        public Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
+            this.ecsTaskTemplate = ecsTaskTemplate;
+            return this;
+        }
+
+        public Builder cloud(ECSCloud ecsCloud) {
+            this.cloud = ecsCloud;
+            return this;
+        }
+
+        public Builder label(String label) {
+            this.label = label;
+            return this;
+        }
+
+        public Builder computerLauncher(ComputerLauncher computerLauncher) {
+            this.computerLauncher = computerLauncher;
+            return this;
+        }
+
+        public Builder retentionStrategy(RetentionStrategy retentionStrategy) {
+            this.retentionStrategy = retentionStrategy;
+            return this;
+        }
+
+        public ECSSlave build() throws IOException, Descriptor.FormException {
+            Validate.notNull(ecsTaskTemplate);
+            Validate.notNull(cloud);
+            return new ECSSlave(name==null? getSlaveName(ecsTaskTemplate): name,
+                    ecsTaskTemplate,
+                    nodeDescription==null? ecsTaskTemplate.getTemplateName(): nodeDescription,
+                    cloud.name,
+                    label==null?ecsTaskTemplate.getLabel(): label,
+                    computerLauncher==null?new ECSLauncher(): computerLauncher,
+                    retentionStrategy==null?determineRetentionStrategy(): retentionStrategy);
+        }
+
+
+
+        private RetentionStrategy determineRetentionStrategy() {
+            //TODO
+            return new CloudRetentionStrategy(1);
+        }
     }
 }
