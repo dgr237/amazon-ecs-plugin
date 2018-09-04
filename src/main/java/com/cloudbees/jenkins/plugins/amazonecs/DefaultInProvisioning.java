@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Extension
-class DefaultInProvisioning extends InProvisioning {
+public class DefaultInProvisioning extends InProvisioning {
     private static final Logger LOGGER = Logger.getLogger(DefaultInProvisioning.class.getName());
 
     private static boolean isNotAcceptingTasks(Node n) {

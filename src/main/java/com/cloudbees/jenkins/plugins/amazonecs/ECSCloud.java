@@ -61,17 +61,16 @@ public class ECSCloud extends Cloud {
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
+    private static final int DEFAULT_MAX_SLAVES = 10;
 
-    private final List<ECSTaskTemplate> templates;
 
     /**
      * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
      */
     @Nonnull
     private final String credentialsId;
-
     private final String cluster;
-
+    private final List<ECSTaskTemplate> templates;
     private String regionName;
 
     /**
@@ -79,10 +78,9 @@ public class ECSCloud extends Cloud {
      */
     @CheckForNull
     private String tunnel;
-
     private String jenkinsUrl;
-
     private int slaveTimoutInSeconds;
+    private int maxSlaves;
 
     private ECSService ecsService;
 
@@ -96,17 +94,33 @@ public class ECSCloud extends Cloud {
         this.regionName = regionName;
         LOGGER.log(Level.INFO, "Create cloud {0} on ECS cluster {1} on the region {2}", new Object[]{name, cluster, regionName});
 
-        if(StringUtils.isNotBlank(jenkinsUrl)) {
+        if (StringUtils.isNotBlank(jenkinsUrl)) {
             this.jenkinsUrl = jenkinsUrl;
         } else {
             this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
         }
 
-        if(slaveTimoutInSeconds > 0) {
+        if (slaveTimoutInSeconds > 0) {
             this.slaveTimoutInSeconds = slaveTimoutInSeconds;
         } else {
             this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
         }
+
+        this.maxSlaves = DEFAULT_MAX_SLAVES;
+    }
+
+    private List<ECSComputer> getCurrentComputers() {
+        Computer[] all = Jenkins.get().getComputers();
+        List<ECSComputer> runningECSComputers = new ArrayList<>();
+        for (Computer computer : all) {
+            if (computer instanceof ECSComputer) {
+                ECSComputer ecsComputer = (ECSComputer) computer;
+                if (ecsComputer.isConnecting() || ecsComputer.isAcceptingTasks()) {
+                    runningECSComputers.add(ecsComputer);
+                }
+            }
+        }
+        return runningECSComputers;
     }
 
     private boolean waitForSufficientClusterResources(int timeoutSeconds, ECSTaskTemplate template) {
@@ -122,16 +136,12 @@ public class ECSCloud extends Cloud {
     }
 
     @Nonnull
-    private List<ECSTaskTemplate> getTemplates() {
+    public List<ECSTaskTemplate> getTemplates() {
         return templates != null ? templates : Collections.emptyList();
     }
 
     public String getCredentialsId() {
         return credentialsId;
-    }
-
-    public String getCluster() {
-        return cluster;
     }
 
     public String getRegionName() {
@@ -142,6 +152,11 @@ public class ECSCloud extends Cloud {
         this.regionName = regionName;
     }
 
+    public String getCluster() {
+        return cluster;
+    }
+
+
     public String getTunnel() {
         return tunnel;
     }
@@ -150,6 +165,32 @@ public class ECSCloud extends Cloud {
     public void setTunnel(String tunnel) {
         this.tunnel = tunnel;
     }
+
+    public int getSlaveTimoutInSeconds() {
+        return slaveTimoutInSeconds;
+    }
+
+    public void setSlaveTimoutInSeconds(int slaveTimoutInSeconds) {
+        this.slaveTimoutInSeconds = slaveTimoutInSeconds;
+    }
+
+    public int getMaxSlaves() {
+        return maxSlaves;
+    }
+
+    @DataBoundSetter
+    public void setMaxSlaves(int maxSlaves) {
+        this.maxSlaves = maxSlaves;
+    }
+
+    public String getJenkinsUrl() {
+        return jenkinsUrl;
+    }
+
+    public void setJenkinsUrl(String jenkinsUrl) {
+        this.jenkinsUrl = jenkinsUrl;
+    }
+
 
     @CheckForNull
     private static AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
@@ -202,6 +243,12 @@ public class ECSCloud extends Cloud {
     }
 
     private boolean addProvisionedSlave(ECSTaskTemplate template, Label label) {
+        List<String> allRunningTasks=getEcsService().getRunningTasks(this);
+        LOGGER.log(Level.INFO, "ECS Builder Agents Running: {0}", allRunningTasks.size());
+        if (allRunningTasks.size() >= maxSlaves) {
+            LOGGER.log(Level.INFO, "ECS Builder Agents Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
+            return false;
+        }
         return template.isFargate() || waitForSufficientClusterResources(1000 * slaveTimoutInSeconds, template);
     }
 
@@ -209,24 +256,26 @@ public class ECSCloud extends Cloud {
          getEcsService().deleteTask(taskArn, cluster);
      }
 
-    public int getSlaveTimoutInSeconds() {
-        return slaveTimoutInSeconds;
-    }
 
-    public void setSlaveTimoutInSeconds(int slaveTimoutInSeconds) {
-        this.slaveTimoutInSeconds = slaveTimoutInSeconds;
+
+    public static Region getRegion(String regionName) {
+        if (StringUtils.isNotEmpty(regionName)) {
+            return RegionUtils.getRegion(regionName);
+        } else {
+            return Region.getRegion(Regions.US_EAST_1);
+        }
     }
 
 
 
     @Extension
-    static class DescriptorImpl extends Descriptor<Cloud> {
+    public static class DescriptorImpl extends Descriptor<Cloud> {
 
         private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
 
         @Override
         public String getDisplayName() {
-            return "Amazon EC2 Container Service Cloud";
+            return Messages.DisplayName();
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
@@ -270,19 +319,4 @@ public class ECSCloud extends Cloud {
 
     }
 
-    public static Region getRegion(String regionName) {
-        if (StringUtils.isNotEmpty(regionName)) {
-            return RegionUtils.getRegion(regionName);
-        } else {
-            return Region.getRegion(Regions.US_EAST_1);
-        }
-    }
-
-    public String getJenkinsUrl() {
-        return jenkinsUrl;
-    }
-
-    public void setJenkinsUrl(String jenkinsUrl) {
-        this.jenkinsUrl = jenkinsUrl;
-    }
 }

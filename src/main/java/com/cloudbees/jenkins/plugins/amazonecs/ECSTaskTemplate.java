@@ -673,7 +673,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
         @Override
         public String getDisplayName() {
-            return "ECS Task template";
+            return Messages.Template();
         }
 
         public ListBoxModel doFillLaunchTypeItems() {
