@@ -10,7 +10,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
 
-public abstract class InProvisioning implements ExtensionPoint {
+abstract class InProvisioning implements ExtensionPoint {
     /**
      * Returns the agents names in provisioning according to all implementations of this extension point for the given label.
      *
@@ -18,13 +18,13 @@ public abstract class InProvisioning implements ExtensionPoint {
      * @return the agents names in provisioning according to all implementations of this extension point for the given label.
      */
     @Nonnull
-    public static Set<String> getAllInProvisioning(@CheckForNull Label label) {
+    static Set<String> getAllInProvisioning(@CheckForNull Label label) {
         return all().stream()
                 .flatMap(c -> c.getInProvisioning(label).stream())
                 .collect(toSet());
     }
 
-    public static ExtensionList<InProvisioning> all() {
+    private static ExtensionList<InProvisioning> all() {
         return ExtensionList.lookup(InProvisioning.class);
     }
 
@@ -35,5 +35,5 @@ public abstract class InProvisioning implements ExtensionPoint {
      * @return The agents names in provisioning for the current label.
      */
     @Nonnull
-    public abstract Set<String> getInProvisioning(Label label);
+    abstract Set<String> getInProvisioning(Label label);
 }

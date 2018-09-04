@@ -28,9 +28,7 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 import hudson.model.Executor;
 import hudson.model.Queue;
 import hudson.slaves.AbstractCloudComputer;
-import hudson.slaves.AbstractCloudSlave;
 
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,10 +39,10 @@ import java.util.logging.Logger;
  *
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
-public class ECSComputer extends AbstractCloudComputer<ECSSlave> {
+class ECSComputer extends AbstractCloudComputer<ECSSlave> {
     private static final Logger LOGGER = Logger.getLogger(ECSComputer.class.getName());
 
-    public ECSComputer(ECSSlave slave) {
+    ECSComputer(ECSSlave slave) {
         super(slave);
     }
 

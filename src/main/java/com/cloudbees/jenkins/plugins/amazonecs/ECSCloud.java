@@ -25,43 +25,33 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import java.io.IOException;
-import java.text.MessageFormat;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.servlet.ServletException;
-
-import com.amazonaws.services.ecs.model.TaskDefinition;
-import hudson.model.*;
-import org.apache.commons.lang.StringUtils;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.ecs.AmazonECSClient;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
-import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
-
 import hudson.Extension;
+import hudson.model.Computer;
+import hudson.model.Descriptor;
+import hudson.model.Label;
 import hudson.slaves.Cloud;
-import hudson.slaves.JNLPLauncher;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
+import org.apache.commons.lang.StringUtils;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+
+import javax.annotation.CheckForNull;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -98,7 +88,7 @@ public class ECSCloud extends Cloud {
 
     @DataBoundConstructor
     public ECSCloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
-            String cluster, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) throws InterruptedException{
+            String cluster, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) {
         super(name);
         this.credentialsId = credentialsId;
         this.cluster = cluster;
@@ -119,10 +109,9 @@ public class ECSCloud extends Cloud {
         }
     }
 
-//    void waitForSufficientClusterResources(Date timeout, ECSTaskTemplate template)
-//    {
-//        getEcsService().waitForSufficientClusterResources(timeout,template,getCluster());
-//    }
+    private boolean waitForSufficientClusterResources(int timeoutSeconds, ECSTaskTemplate template) {
+        return getEcsService().areSufficientClusterResourcesAvailable(timeoutSeconds, template, getCluster());
+    }
 
 
     synchronized ECSService getEcsService() {
@@ -132,13 +121,9 @@ public class ECSCloud extends Cloud {
         return ecsService;
     }
 
-    AmazonECSClient getAmazonECSClient() {
-        return getEcsService().getAmazonECSClient();
-    }
-
     @Nonnull
-    public List<ECSTaskTemplate> getTemplates() {
-        return templates != null ? templates : Collections.<ECSTaskTemplate> emptyList();
+    private List<ECSTaskTemplate> getTemplates() {
+        return templates != null ? templates : Collections.emptyList();
     }
 
     public String getCredentialsId() {
@@ -168,7 +153,7 @@ public class ECSCloud extends Cloud {
 
     @CheckForNull
     private static AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.getActiveInstance());
+        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.get());
     }
 
     @Override
@@ -197,7 +182,7 @@ public class ECSCloud extends Cloud {
             int toBeProvisioned = Math.max(0, excessWorkload - allInProvisioning.size());
             LOGGER.log(Level.INFO, "Excess workload after pending ECS agents: " + toBeProvisioned);
 
-            List<NodeProvisioner.PlannedNode> r = new ArrayList<NodeProvisioner.PlannedNode>();
+            List<NodeProvisioner.PlannedNode> r = new ArrayList<>();
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= toBeProvisioned; i++) {
@@ -217,7 +202,7 @@ public class ECSCloud extends Cloud {
     }
 
     private boolean addProvisionedSlave(ECSTaskTemplate template, Label label) {
-        return true;
+        return template.isFargate() || waitForSufficientClusterResources(1000 * slaveTimoutInSeconds, template);
     }
 
     void deleteTask(String taskArn) {
@@ -235,9 +220,9 @@ public class ECSCloud extends Cloud {
 
 
     @Extension
-    public static class DescriptorImpl extends Descriptor<Cloud> {
+    static class DescriptorImpl extends Descriptor<Cloud> {
 
-        private static String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
+        private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
 
         @Override
         public String getDisplayName() {
@@ -245,7 +230,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
-            return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.getActiveInstance());
+            return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.get());
         }
 
         public ListBoxModel doFillRegionNameItems() {
@@ -259,15 +244,7 @@ public class ECSCloud extends Cloud {
         public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
             ECSService ecsService = new ECSService(credentialsId, regionName);
             try {
-                final AmazonECSClient client = ecsService.getAmazonECSClient();
-                final List<String> allClusterArns = new ArrayList<String>();
-                String lastToken = null;
-                do {
-                    ListClustersResult result = client.listClusters(new ListClustersRequest().withNextToken(lastToken));
-                    allClusterArns.addAll(result.getClusterArns());
-                    lastToken = result.getNextToken();
-                } while (lastToken != null);
-                Collections.sort(allClusterArns);
+                List<String> allClusterArns=ecsService.getClusterArns();
                 final ListBoxModel options = new ListBoxModel();
                 for (final String arn : allClusterArns) {
                     options.add(arn);
@@ -284,7 +261,7 @@ public class ECSCloud extends Cloud {
             }
         }
 
-        public FormValidation doCheckName(@QueryParameter String value) throws IOException, ServletException {
+        public FormValidation doCheckName(@QueryParameter String value) {
             if (value.length() > 0 && value.length() <= 127 && value.matches(CLOUD_NAME_PATTERN)) {
                 return FormValidation.ok();
             }

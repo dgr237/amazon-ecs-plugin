@@ -25,20 +25,7 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import java.io.IOException;
-import java.util.*;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-
-import hudson.Launcher;
-import hudson.console.ModelHyperlinkNote;
 import hudson.model.Descriptor;
-import hudson.model.Executor;
-import hudson.model.Messages;
-import hudson.model.Queue;
 import hudson.model.TaskListener;
 import hudson.node_monitors.ResponseTimeMonitor;
 import hudson.slaves.*;
@@ -47,6 +34,11 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 
+import javax.annotation.Nonnull;
+import javax.annotation.concurrent.GuardedBy;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,7 +53,6 @@ public class ECSSlave extends AbstractCloudSlave {
 
     private final String cloudName;
     private final ECSTaskTemplate template;
-    private transient Set<Queue.Executable> executables = new HashSet<>();
     private static RetentionStrategy deleteAfterFinished = new RetentionStrategy<ECSComputer>() {
         @Override
         public boolean isManualLaunchAllowed(ECSComputer c) {
@@ -70,7 +61,7 @@ public class ECSSlave extends AbstractCloudSlave {
 
         @Override
         @GuardedBy("hudson.model.Queue.lock")
-        public long check(ECSComputer c) {
+        public long check(@Nonnull ECSComputer c) {
             LOGGER.log(Level.FINE, "Checking computer: {0}", c);
 
             AbstractCloudSlave node = c.getNode();
@@ -91,9 +82,7 @@ public class ECSSlave extends AbstractCloudSlave {
                 LOGGER.log(Level.FINE, "Computer is idle and not accepting tasks; terminating it.");
                 try {
                     node.terminate();
-                } catch (InterruptedException e) {
-                    LOGGER.log(Level.WARNING, "Failed to terminate " + c.getName(), e);
-                } catch (IOException e) {
+                } catch (InterruptedException | IOException e) {
                     LOGGER.log(Level.WARNING, "Failed to terminate " + c.getName(), e);
                 }
             }
@@ -104,9 +93,7 @@ public class ECSSlave extends AbstractCloudSlave {
                 LOGGER.log(Level.FINE, "Computer is not responding; terminating it");
                 try {
                     node.terminate();
-                } catch (InterruptedException e) {
-                    LOGGER.log(Level.WARNING, "Failed to terminate " + c.getName(), e);
-                } catch (IOException e) {
+                } catch (InterruptedException | IOException e) {
                     LOGGER.log(Level.WARNING, "Failed to terminate " + c.getName(), e);
                 }
             }
@@ -119,7 +106,7 @@ public class ECSSlave extends AbstractCloudSlave {
     private String taskArn;
     private String taskDefinitonArn;
 
-    protected ECSSlave(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
+    ECSSlave(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                        ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
         super(name,
                 nodeDescription,
@@ -129,7 +116,7 @@ public class ECSSlave extends AbstractCloudSlave {
                 labelStr,
                 launcher,
                 rs,
-                new ArrayList<NodeProperty<?>>());
+                new ArrayList<>());
         this.cloudName = cloudName;
         this.template = template;
     }
@@ -156,7 +143,7 @@ public class ECSSlave extends AbstractCloudSlave {
     }
 
     public ECSCloud getCloud() {
-        Cloud cloud = Jenkins.getInstance().getCloud(getCloudName());
+        Cloud cloud = Jenkins.get().getCloud(getCloudName());
         if (cloud instanceof ECSCloud) {
             return (ECSCloud) cloud;
         } else {
@@ -166,7 +153,7 @@ public class ECSSlave extends AbstractCloudSlave {
 
     Collection<String> getDockerRunCommand() {
         ECSCloud cloud=getCloud();
-        Collection<String> command = new ArrayList<String>();
+        Collection<String> command = new ArrayList<>();
         command.add("-url");
         command.add(cloud.getJenkinsUrl());
         String tunnel=cloud.getTunnel();
@@ -184,7 +171,7 @@ public class ECSSlave extends AbstractCloudSlave {
         return new ECSSlave.Builder();
     }
 
-    static String getSlaveName(ECSTaskTemplate ecsTaskTemplate) {
+    private static String getSlaveName(ECSTaskTemplate ecsTaskTemplate) {
         String randString= RandomStringUtils.random(5,"bcdefghijklmnopqrstuvwxyz0123456789");
         String name=ecsTaskTemplate.getTemplateName();
         if(StringUtils.isEmpty(name)) {
@@ -196,7 +183,7 @@ public class ECSSlave extends AbstractCloudSlave {
         return String.format("%s-%s",name,randString);
     }
 
-    public String getCloudName() {
+    private String getCloudName() {
         return cloudName;
     }
 
@@ -206,10 +193,6 @@ public class ECSSlave extends AbstractCloudSlave {
 
     public void setTaskArn(String taskArn) {
         this.taskArn = taskArn;
-    }
-
-    public void setTaskDefinitonArn(String taskDefinitonArn) {
-        this.taskDefinitonArn = taskDefinitonArn;
     }
 
     public String getTaskArn() {
@@ -229,8 +212,7 @@ public class ECSSlave extends AbstractCloudSlave {
 
         ECSSlave that = (ECSSlave) o;
 
-        if (cloudName != null ? !cloudName.equals(that.cloudName) : that.cloudName != null) return false;
-        return template != null ? template.equals(that.template) : that.template == null;
+        return (cloudName != null ? cloudName.equals(that.cloudName) : that.cloudName == null) && (template != null ? template.equals(that.template) : that.template == null);
     }
 
     @Override
@@ -240,30 +222,6 @@ public class ECSSlave extends AbstractCloudSlave {
         result = 31 * result + (template != null ? template.hashCode() : 0);
         return result;
     }
-
-    @Override
-    public Launcher createLauncher(TaskListener listener) {
-        if (template != null) {
-            Executor executor = Executor.currentExecutor();
-            if (executor != null) {
-                Queue.Executable currentExecutable = executor.getCurrentExecutable();
-                if (currentExecutable != null && executables.add(currentExecutable)) {
-                    listener.getLogger().println(String.format("Agent {0} is provisioned from template {1}",
-                            ModelHyperlinkNote.encodeTo("/computer/" + getNodeName(), getNodeName()),
-                            getTemplate().getDisplayName())
-                    );
-                    //listener.getLogger().println(getTemplate().getDescriptionForLogging());
-                }
-            }
-        }
-        return super.createLauncher(listener);
-    }
-
-    protected Object readResolve() {
-        this.executables = new HashSet<>();
-        return this;
-    }
-
 
     public static class Builder {
 

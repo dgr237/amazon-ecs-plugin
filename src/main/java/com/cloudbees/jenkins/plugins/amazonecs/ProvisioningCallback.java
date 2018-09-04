@@ -1,16 +1,15 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import hudson.model.Node;
-import org.antlr.v4.runtime.misc.NotNull;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.Callable;
 
-public class ProvisioningCallback implements Callable<Node> {
-    ECSCloud cloud;
-    ECSTaskTemplate template;
+class ProvisioningCallback implements Callable<Node> {
+    private final ECSCloud cloud;
+    private final ECSTaskTemplate template;
 
-    public ProvisioningCallback(@Nonnull ECSCloud cloud, @Nonnull ECSTaskTemplate template) {
+    ProvisioningCallback(@Nonnull ECSCloud cloud, @Nonnull ECSTaskTemplate template) {
         this.cloud=cloud;
         this.template=template;
     }

@@ -5,27 +5,23 @@ import com.google.common.base.Throwables;
 import hudson.model.TaskListener;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.SlaveComputer;
-import jenkins.model.Jenkins;
-import sun.rmi.runtime.Log;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.text.MessageFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
-public class ECSLauncher extends JNLPLauncher {
+class ECSLauncher extends JNLPLauncher {
 
     private static final Logger LOGGER = Logger.getLogger(ECSLauncher.class.getName());
-    public boolean launched;
+    private boolean launched;
 
-    public ECSLauncher() {
-        super();
+    ECSLauncher() {
+        super(false);
     }
 
     @Override
@@ -94,10 +90,7 @@ public class ECSLauncher extends JNLPLauncher {
 
                 throw Throwables.propagate(ex);
             }
-            int i = 0;
             int j = 100; // wait 600 seconds
-
-
 
             String taskArn = slave.getTaskArn();
             LOGGER.log(INFO, "Waiting for Task to be running: {}", taskArn);
@@ -106,7 +99,7 @@ public class ECSLauncher extends JNLPLauncher {
 
             try {
                 // wait for Pod to be running
-                for (; i < j && !isRunning; i++) {
+                for (int i=0; i < j && !isRunning; i++) {
                     isRunning = service.isTaskRunning(cloud, taskArn);
 
                     LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}", new Object[]{taskArn, i, j});
@@ -115,7 +108,7 @@ public class ECSLauncher extends JNLPLauncher {
                     Thread.sleep(6000);
                 }
 
-                for (; i < j; i++) {
+                for (int i=0; i < cloud.getSlaveTimoutInSeconds(); i++) {
                     if (slave.getComputer() == null) {
                         throw new IllegalStateException("Node was deleted, computer is null");
                     }
@@ -126,7 +119,7 @@ public class ECSLauncher extends JNLPLauncher {
                     logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", taskArn, i, j);
                     Thread.sleep(1000);
                 }
-                if (!slave.getComputer().isOnline()) {
+                if (!computer.isOnline()) {
                     throw new IllegalStateException("Agent is not connected after " + j + " attempts");
                 }
 

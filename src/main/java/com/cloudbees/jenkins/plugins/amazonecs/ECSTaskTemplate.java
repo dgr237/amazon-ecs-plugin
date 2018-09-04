@@ -25,25 +25,13 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.amazonaws.services.ecs.model.AwsVpcConfiguration;
-import com.amazonaws.services.ecs.model.ContainerDefinition;
-import com.amazonaws.services.ecs.model.HostEntry;
-import com.amazonaws.services.ecs.model.PortMapping;
-import com.amazonaws.services.ecs.model.Volume;
-import com.amazonaws.services.ecs.model.HostVolumeProperties;
-import com.amazonaws.services.ecs.model.KeyValuePair;
-import com.amazonaws.services.ecs.model.LaunchType;
-import com.amazonaws.services.ecs.model.MountPoint;
-import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
-import com.amazonaws.services.ecs.model.Volume;
+import com.amazonaws.services.ecs.model.*;
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.labels.LabelAtom;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
-
 import hudson.util.ListBoxModel;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -53,9 +41,6 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.servlet.ServletException;
-
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -434,6 +419,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         @Extension
         public static class DescriptorImpl extends Descriptor<LogDriverOption> {
             @Override
+            @Nonnull
             public String getDisplayName() {
                 return "logDriverOption";
             }
@@ -448,7 +434,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         if (null == logDriverOptions || logDriverOptions.isEmpty()) {
             return null;
         }
-        Map<String,String> options = new HashMap<String,String>();
+        Map<String,String> options = new HashMap<>();
         for (LogDriverOption logDriverOption : logDriverOptions) {
             String name = logDriverOption.name;
             String value = logDriverOption.value;
@@ -476,7 +462,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         if (null == environments || environments.isEmpty()) {
             return null;
         }
-        Collection<KeyValuePair> items = new ArrayList<KeyValuePair>();
+        Collection<KeyValuePair> items = new ArrayList<>();
         for (EnvironmentEntry environment : environments) {
             String name = environment.name;
             String value = environment.value;
@@ -492,7 +478,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         if (null == extraHosts || extraHosts.isEmpty()) {
             return null;
         }
-        Collection<HostEntry> items = new ArrayList<HostEntry>();
+        Collection<HostEntry> items = new ArrayList<>();
         for (ExtraHostEntry extrahost : extraHosts) {
             String ipAddress = extrahost.ipAddress;
             String hostname = extrahost.hostname;
@@ -509,7 +495,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     }
 
     Collection<Volume> getVolumeEntries() {
-        Collection<Volume> vols = new LinkedList<Volume>();
+        Collection<Volume> vols = new LinkedList<>();
         if (null != mountPoints ) {
             for (MountPointEntry mount : mountPoints) {
                 String name = mount.name;
@@ -529,7 +515,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     Collection<MountPoint> getMountPointEntries() {
         if (null == mountPoints || mountPoints.isEmpty())
             return null;
-        Collection<MountPoint> mounts = new ArrayList<MountPoint>();
+        Collection<MountPoint> mounts = new ArrayList<>();
         for (MountPointEntry mount : mountPoints) {
             String src = mount.name;
             String path = mount.containerPath;
@@ -546,7 +532,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     Collection<PortMapping> getPortMappingEntries() {
         if (null == portMappings || portMappings.isEmpty())
             return null;
-        Collection<PortMapping> ports = new ArrayList<PortMapping>();
+        Collection<PortMapping> ports = new ArrayList<>();
         for (PortMappingEntry portMapping : this.portMappings) {
             Integer container = portMapping.containerPort;
             Integer host = portMapping.hostPort;
@@ -698,14 +684,14 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
             return options;
         }
 
-        public FormValidation doCheckTemplateName(@QueryParameter String value) throws IOException, ServletException {
+        public FormValidation doCheckTemplateName(@QueryParameter String value) {
             if (value.length() > 0 && value.length() <= 127 && value.matches(TEMPLATE_NAME_PATTERN)) {
                 return FormValidation.ok();
             }
             return FormValidation.error("Up to 127 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed");
         }
 
-        public FormValidation doCheckSubnets(@QueryParameter("subnets") String subnets, @QueryParameter("launchType") String launchType) throws IOException, ServletException {
+        public FormValidation doCheckSubnets(@QueryParameter("subnets") String subnets, @QueryParameter("launchType") String launchType) {
             if (launchType.equals("FARGATE") && subnets.isEmpty()) {
                 return FormValidation.error("Subnets need to be set, when using FARGATE");
             }
@@ -713,11 +699,11 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         }
 
         /* we validate both memory and memoryReservation fields to the same rules */
-        public FormValidation doCheckMemory(@QueryParameter("memory") int memory, @QueryParameter("memoryReservation") int memoryReservation) throws IOException, ServletException {
+        public FormValidation doCheckMemory(@QueryParameter("memory") int memory, @QueryParameter("memoryReservation") int memoryReservation) {
             return validateMemorySettings(memory,memoryReservation);
         }
 
-        public FormValidation doCheckMemoryReservation(@QueryParameter("memory") int memory, @QueryParameter("memoryReservation") int memoryReservation) throws IOException, ServletException {
+        public FormValidation doCheckMemoryReservation(@QueryParameter("memory") int memory, @QueryParameter("memoryReservation") int memoryReservation) {
             return validateMemorySettings(memory,memoryReservation);
         }
 
