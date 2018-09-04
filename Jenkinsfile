@@ -1,5 +1,5 @@
 pipeline { 
-    agent { label 'jnlp-slave'}
+    agent { label 'maven-java'}
     stages { 
         stage ('Build') {
             steps {
