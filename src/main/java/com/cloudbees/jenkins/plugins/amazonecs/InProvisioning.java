@@ -10,7 +10,7 @@ import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
 
-abstract class InProvisioning implements ExtensionPoint {
+public abstract class InProvisioning implements ExtensionPoint {
     /**
      * Returns the agents names in provisioning according to all implementations of this extension point for the given label.
      *

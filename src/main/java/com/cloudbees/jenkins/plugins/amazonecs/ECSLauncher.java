@@ -1,10 +1,13 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
+import com.amazonaws.AbortedException;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.google.common.base.Throwables;
+import hudson.AbortException;
 import hudson.model.TaskListener;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.SlaveComputer;
+import org.apache.log4j.lf5.LogLevel;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -46,7 +49,7 @@ class ECSLauncher extends JNLPLauncher {
         }
 
         if (launched) {
-            LOGGER.log(Level.INFO, "Agent has already been launched, activating: {}", slave.getNodeName());
+            LOGGER.log(Level.INFO, "Agent has already been launched, activating: "+ slave.getNodeName());
             computer.setAcceptingTasks(true);
             return;
         }
@@ -93,22 +96,30 @@ class ECSLauncher extends JNLPLauncher {
             int j = 100; // wait 600 seconds
 
             String taskArn = slave.getTaskArn();
-            LOGGER.log(INFO, "Waiting for Task to be running: {}", taskArn);
-            boolean isRunning = false;
+            LOGGER.log(INFO, "Waiting for Task to be running: {0}", taskArn);
 
 
             try {
                 // wait for Pod to be running
-                for (int i=0; i < j && !isRunning; i++) {
-                    isRunning = service.isTaskRunning(cloud, taskArn);
+                for (int i=0; i < j; i++) {
+                    String status = service.getTaskStatus(cloud, taskArn);
 
-                    LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}", new Object[]{taskArn, i, j});
-                    logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
+                    if (status.equals("STOPPED") || status.equals("DEPROVISIONING")) {
+                        throw new IllegalStateException("Task: " + taskArn + " has been Stopped");
+                    }
 
-                    Thread.sleep(6000);
+                    if (status.equals("RUNNING")) {
+                        break;
+                    } else {
+                        LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
+                        logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
+
+                        Thread.sleep(6000);
+                    }
+
                 }
 
-                for (int i=0; i < cloud.getSlaveTimoutInSeconds(); i++) {
+                for (int i=j*10; i < cloud.getSlaveTimoutInSeconds(); i++) {
                     if (slave.getComputer() == null) {
                         throw new IllegalStateException("Node was deleted, computer is null");
                     }
@@ -120,7 +131,7 @@ class ECSLauncher extends JNLPLauncher {
                     Thread.sleep(1000);
                 }
                 if (!computer.isOnline()) {
-                    throw new IllegalStateException("Agent is not connected after " + j + " attempts");
+                    throw new IllegalStateException("Agent is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts");
                 }
 
                 computer.setAcceptingTasks(true);

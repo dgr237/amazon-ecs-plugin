@@ -52,54 +52,54 @@ import java.util.logging.Logger;
  *
  */
 class ECSService {
-    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSService.class.getName());
 
     private final String credentialsId;
-    private final Jenkins jenkins;
     private final String regionName;
-    private final AmazonECS client;
+    private AmazonECS client;
 
     ECSService(String credentialsId, String regionName) {
         super();
         this.credentialsId = credentialsId;
         this.regionName = regionName;
-        this.jenkins=Jenkins.get();
-        this.client=getAmazonECSClient();
     }
 
-    private final AmazonECS getAmazonECSClient() {
-        ProxyConfiguration proxy = jenkins.proxy;
-        ClientConfiguration clientConfiguration = new ClientConfiguration();
-        if(proxy != null) {
-            clientConfiguration.setProxyHost(proxy.name);
-            clientConfiguration.setProxyPort(proxy.port);
-            clientConfiguration.setProxyUsername(proxy.getUserName());
-            clientConfiguration.setProxyPassword(proxy.getPassword());
-        }
-
-        AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
-        final AmazonECSClientBuilder builder=AmazonECSClient.builder().withClientConfiguration(clientConfiguration).withRegion(regionName);
-        if (credentials != null) {
-            builder.withCredentials(credentials);
-            // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-            // to use IAM Role define at the EC2 instance level ...
-            if (LOGGER.isLoggable(Level.FINE)) {
-                String awsAccessKeyId = credentials.getCredentials().getAWSAccessKeyId();
-                String obfuscatedAccessKeyId = StringUtils.left(awsAccessKeyId, 4) + StringUtils.repeat("*", awsAccessKeyId.length() - (2 * 4)) + StringUtils.right(awsAccessKeyId, 4);
-                LOGGER.log(Level.FINE, "Connect to Amazon ECS with IAM Access Key {1}", new Object[]{obfuscatedAccessKeyId});
+    private synchronized AmazonECS getAmazonECSClient() {
+        if(client==null) {
+            ProxyConfiguration proxy = Jenkins.get().proxy;
+            ClientConfiguration clientConfiguration = new ClientConfiguration();
+            if (proxy != null) {
+                clientConfiguration.setProxyHost(proxy.name);
+                clientConfiguration.setProxyPort(proxy.port);
+                clientConfiguration.setProxyUsername(proxy.getUserName());
+                clientConfiguration.setProxyPassword(proxy.getPassword());
             }
+
+            AmazonWebServicesCredentials credentials = getCredentials(credentialsId);
+            final AmazonECSClientBuilder builder = AmazonECSClient.builder().withClientConfiguration(clientConfiguration).withRegion(regionName);
+            if (credentials != null) {
+                builder.withCredentials(credentials);
+                // no credentials provided, rely on com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+                // to use IAM Role define at the EC2 instance level ...
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    String awsAccessKeyId = credentials.getCredentials().getAWSAccessKeyId();
+                    String obfuscatedAccessKeyId = StringUtils.left(awsAccessKeyId, 4) + StringUtils.repeat("*", awsAccessKeyId.length() - (2 * 4)) + StringUtils.right(awsAccessKeyId, 4);
+                    LOGGER.log(Level.FINE, "Connect to Amazon ECS with IAM Access Key {1}", new Object[]{obfuscatedAccessKeyId});
+                }
+            }
+
+
+            LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
+            client= builder.build();
         }
-
-
-        LOGGER.log(Level.FINE, "Selected Region: {0}", regionName);
-        return builder.build();
+    return client;
     }
 
     List<String> getClusterArns(){
         final List<String> allClusterArns = new ArrayList<>();
         String lastToken = null;
         do {
-            ListClustersResult result = client.listClusters(new ListClustersRequest().withNextToken(lastToken));
+            ListClustersResult result = getAmazonECSClient().listClusters(new ListClustersRequest().withNextToken(lastToken));
             allClusterArns.addAll(result.getClusterArns());
             lastToken = result.getNextToken();
         } while (lastToken != null);
@@ -109,13 +109,13 @@ class ECSService {
 
     @CheckForNull
     private AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-        return AWSCredentialsHelper.getCredentials(credentialsId, jenkins);
+        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.get());
     }
 
     void deleteTask(String taskArn, String clusterArn) {
         LOGGER.log(Level.INFO, "Delete ECS Slave task: {0}", taskArn);
         try {
-            client.stopTask(new StopTaskRequest().withTask(taskArn).withCluster(clusterArn));
+            getAmazonECSClient().stopTask(new StopTaskRequest().withTask(taskArn).withCluster(clusterArn));
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Couldn't stop task arn " + taskArn + " caught exception: " + e.getMessage(), e);
         }
@@ -218,7 +218,7 @@ class ECSService {
             if (template.getTaskrole() != null) {
                 request.withTaskRoleArn(template.getTaskrole());
             }            
-            final RegisterTaskDefinitionResult result = client.registerTaskDefinition(request);
+            final RegisterTaskDefinitionResult result = getAmazonECSClient().registerTaskDefinition(request);
             LOGGER.log(Level.FINE, "Created Task Definition {0}: {1}", new Object[]{result.getTaskDefinition(), request});
             LOGGER.log(Level.INFO, "Created Task Definition: {0}", new Object[]{result.getTaskDefinition()});
             return result.getTaskDefinition();
@@ -231,7 +231,7 @@ class ECSService {
      */
     TaskDefinition findTaskDefinition(String familyOrArn) {
         try {
-            DescribeTaskDefinitionResult result = client.describeTaskDefinition(
+            DescribeTaskDefinitionResult result = getAmazonECSClient().describeTaskDefinition(
                     new DescribeTaskDefinitionRequest()
                             .withTaskDefinition(familyOrArn));
 
@@ -244,14 +244,29 @@ class ECSService {
         }
     }
 
-    public boolean isTaskRunning(ECSCloud cloud, String taskArn) {
+    public List<String> getRunningTasks(ECSCloud cloud) {
+        ListTasksRequest request=new ListTasksRequest().withCluster(cloud.getCluster()).withDesiredStatus(DesiredStatus.RUNNING);
+        final List<String> allTaskArns = new ArrayList<>();
+        String lastToken = null;
+        do {
+            ListTasksResult result= getAmazonECSClient().listTasks(request.withNextToken(lastToken));
+            allTaskArns.addAll(result.getTaskArns());
+            lastToken = result.getNextToken();
+        } while (lastToken != null);
+        Collections.sort(allTaskArns);
+        return allTaskArns;
+    }
+
+    public String getTaskStatus(ECSCloud cloud, String taskArn) {
         DescribeTasksRequest request = new DescribeTasksRequest();
         request.setCluster(cloud.getCluster());
         request.setTasks(Arrays.asList(taskArn));
 
-        DescribeTasksResult result = client.describeTasks(request);
-        LOGGER.log(Level.INFO,"Task Status: "+ result.toString());
-        return !result.getTasks().isEmpty() && result.getTasks().get(0).getLastStatus().equals("RUNNING");
+        DescribeTasksResult result = getAmazonECSClient().describeTasks(request);
+        if (result.getTasks().isEmpty())
+            return "UNKNOWN";
+        else
+            return result.getTasks().get(0).getLastStatus();
     }
 
     private String fullQualifiedTemplateName(final ECSCloud cloud, final ECSTaskTemplate template) {
@@ -296,7 +311,7 @@ class ECSService {
 
             req.withNetworkConfiguration(networkConfiguration);
         }
-        final RunTaskResult runTaskResult = client.runTask(req);
+        final RunTaskResult runTaskResult = getAmazonECSClient().runTask(req);
 
 
         if (!runTaskResult.getFailures().isEmpty()) {
@@ -316,8 +331,8 @@ class ECSService {
         boolean hasEnoughResources = false;
         WHILE:
         do {
-            ListContainerInstancesResult listContainerInstances = client.listContainerInstances(new ListContainerInstancesRequest().withCluster(clusterArn));
-            DescribeContainerInstancesResult containerInstancesDesc = client.describeContainerInstances(new DescribeContainerInstancesRequest().withContainerInstances(listContainerInstances.getContainerInstanceArns()).withCluster(clusterArn));
+            ListContainerInstancesResult listContainerInstances = getAmazonECSClient().listContainerInstances(new ListContainerInstancesRequest().withCluster(clusterArn));
+            DescribeContainerInstancesResult containerInstancesDesc = getAmazonECSClient().describeContainerInstances(new DescribeContainerInstancesRequest().withContainerInstances(listContainerInstances.getContainerInstanceArns()).withCluster(clusterArn));
             LOGGER.log(Level.INFO, "Found {0} instances", containerInstancesDesc.getContainerInstances().size());
             for(ContainerInstance instance : containerInstancesDesc.getContainerInstances()) {
                 LOGGER.log(Level.INFO, "Resources found in instance {1}: {0}", new Object[] {instance.getRemainingResources(), instance.getContainerInstanceArn()});

@@ -39,7 +39,7 @@ import java.util.logging.Logger;
  *
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
-class ECSComputer extends AbstractCloudComputer<ECSSlave> {
+public class ECSComputer extends AbstractCloudComputer<ECSSlave> {
     private static final Logger LOGGER = Logger.getLogger(ECSComputer.class.getName());
 
     ECSComputer(ECSSlave slave) {
