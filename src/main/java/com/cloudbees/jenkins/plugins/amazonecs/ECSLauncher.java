@@ -119,7 +119,7 @@ class ECSLauncher extends JNLPLauncher {
 
                 }
 
-                for (int i=j*10; i < cloud.getSlaveTimoutInSeconds(); i++) {
+                for (int i=0; i < cloud.getSlaveTimoutInSeconds(); i++) {
                     if (slave.getComputer() == null) {
                         throw new IllegalStateException("Node was deleted, computer is null");
                     }
@@ -145,7 +145,6 @@ class ECSLauncher extends JNLPLauncher {
                 }
                 throw Throwables.propagate(ex);
             }
-
 
             launched = true;
             try {
