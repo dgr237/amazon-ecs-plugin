@@ -219,6 +219,7 @@ public class ECSCloud extends Cloud {
     public Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
         try {
             Set<String> allInProvisioning = InProvisioning.getAllInProvisioning(label);
+            LOGGER.log(Level.FINE, () -> "Excess Workload : " + excessWorkload);
             LOGGER.log(Level.FINE, () -> "In provisioning : " + allInProvisioning);
             int toBeProvisioned = Math.max(0, excessWorkload - allInProvisioning.size());
             LOGGER.log(Level.INFO, "Excess workload after pending ECS agents: " + toBeProvisioned);

@@ -1,17 +1,13 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.amazonaws.AbortedException;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.google.common.base.Throwables;
-import hudson.AbortException;
 import hudson.model.TaskListener;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.SlaveComputer;
-import org.apache.log4j.lf5.LogLevel;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,7 +17,6 @@ import static java.util.logging.Level.SEVERE;
 class ECSLauncher extends JNLPLauncher {
 
     private static final Logger LOGGER = Logger.getLogger(ECSLauncher.class.getName());
-    private boolean launched;
 
     ECSLauncher() {
         super(false);
@@ -29,11 +24,11 @@ class ECSLauncher extends JNLPLauncher {
 
     @Override
     public boolean isLaunchSupported() {
-        return !launched;
+        return true;
     }
-
     @Override
     public void launch(SlaveComputer computer, TaskListener listener) {
+        LOGGER.log(Level.INFO,"Launch called on computer: "+computer.getName());
         PrintStream logger = listener.getLogger();
 
         if (!(computer instanceof ECSComputer)) {
@@ -41,24 +36,21 @@ class ECSLauncher extends JNLPLauncher {
         }
 
         ECSComputer ecsComputer = (ECSComputer) computer;
-        computer.setAcceptingTasks(false);
 
         ECSSlave slave = ecsComputer.getNode();
         if (slave == null) {
             throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
         }
 
-        if (launched) {
-            LOGGER.log(Level.INFO, "Agent has already been launched, activating: "+ slave.getNodeName());
-            computer.setAcceptingTasks(true);
+        if(slave.getTaskState()!= ECSSlave.State.None) {
+            LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
             return;
         }
 
+        slave.setTaskState(ECSSlave.State.Initializing);
         ECSCloud cloud = slave.getCloud();
         ECSTaskTemplate template = slave.getTemplate();
         ECSService service = cloud.getEcsService();
-        Date now = new Date();
-        Date timeout = new Date(now.getTime() + 1000 * cloud.getSlaveTimoutInSeconds());
 
         synchronized (cloud.getCluster()) {
             try {
@@ -84,27 +76,22 @@ class ECSLauncher extends JNLPLauncher {
                         new Object[]{slave.getNodeName(), taskArn});
                 slave.setTaskArn(taskArn);
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "Slave {0} - Cannot create ECS Task");
-                try {
-                    slave.terminate();
-                } catch (IOException | InterruptedException e) {
-                    LOGGER.log(Level.WARNING, "Unable to remove Jenkins Node", e);
-                }
-
-                throw Throwables.propagate(ex);
+                LOGGER.log(Level.WARNING, "Slave " + slave.getNodeName() + " - Cannot create ECS Task", ex);
+                slave.setTaskState(ECSSlave.State.Stopping);
+                return;
             }
             int j = 100; // wait 600 seconds
 
             String taskArn = slave.getTaskArn();
             LOGGER.log(INFO, "Waiting for Task to be running: {0}", taskArn);
 
-
             try {
                 // wait for Pod to be running
-                for (int i=0; i < j; i++) {
+                for (int i = 0; i < j; i++) {
                     String status = service.getTaskStatus(cloud, taskArn);
 
                     if (status.equals("STOPPED") || status.equals("DEPROVISIONING")) {
+                        slave.setTaskState(ECSSlave.State.Stopping);
                         throw new IllegalStateException("Task: " + taskArn + " has been Stopped");
                     }
 
@@ -119,34 +106,26 @@ class ECSLauncher extends JNLPLauncher {
 
                 }
 
-                for (int i=0; i < cloud.getSlaveTimoutInSeconds(); i++) {
+                for (int i = 0; i < cloud.getSlaveTimoutInSeconds(); i++) {
                     if (slave.getComputer() == null) {
                         throw new IllegalStateException("Node was deleted, computer is null");
                     }
                     if (slave.getComputer().isOnline()) {
+                        slave.setTaskState(ECSSlave.State.Running);
                         break;
                     }
                     LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{taskArn, i, j});
                     logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", taskArn, i, j);
                     Thread.sleep(1000);
                 }
-                if (!computer.isOnline()) {
+                if (slave.getTaskState() != ECSSlave.State.Running) {
                     throw new IllegalStateException("Agent is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts");
                 }
-
-                computer.setAcceptingTasks(true);
+            } catch (Exception ex) {
+                LOGGER.log(SEVERE, "Error Getting Task Status: "+taskArn, ex);
+                slave.setTaskState(ECSSlave.State.Stopping);
+                return;
             }
-            catch (Exception ex) {
-                LOGGER.log(SEVERE, "Error Getting Task Status: {0}: {1}", new Object[]{taskArn, ex.getMessage()});
-                try {
-                    slave.terminate();
-                } catch (IOException | InterruptedException e) {
-                    LOGGER.log(Level.WARNING, "Unable to remove Jenkins node", e);
-                }
-                throw Throwables.propagate(ex);
-            }
-
-            launched = true;
             try {
                 slave.save();
             } catch (IOException ex) {
