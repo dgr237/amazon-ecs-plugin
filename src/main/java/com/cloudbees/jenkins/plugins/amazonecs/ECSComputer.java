@@ -45,25 +45,4 @@ public class ECSComputer extends AbstractCloudComputer<ECSSlave> {
     ECSComputer(ECSSlave slave) {
         super(slave);
     }
-
-    @Override
-    public void taskAccepted(Executor executor, Queue.Task task) {
-        super.taskAccepted(executor, task);
-
-        LOGGER.log(Level.FINE, "Computer {0} taskAccepted", this);
-    }
-
-    @Override
-    public void taskCompleted(Executor executor, Queue.Task task, long durationMS) {
-        super.taskCompleted(executor, task, durationMS);
-        
-        LOGGER.log(Level.FINE, "Computer {0} taskCompleted", this);
-    }
-
-    @Override
-    public void taskCompletedWithProblems(Executor executor, Queue.Task task, long durationMS, Throwable problems) {
-        super.taskCompletedWithProblems(executor, task, durationMS, problems);
-        
-        LOGGER.log(Level.FINE, "Computer {0} taskCompletedWithProblems", this);
-    }
 }

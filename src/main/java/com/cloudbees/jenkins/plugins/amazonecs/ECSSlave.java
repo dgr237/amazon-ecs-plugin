@@ -25,19 +25,17 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
+import com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy.ECSOneUseRetentionStrategy;
+import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.TaskListener;
-import hudson.node_monitors.ResponseTimeMonitor;
+import hudson.remoting.VirtualChannel;
 import hudson.slaves.*;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
-import org.kohsuke.stapler.DataBoundSetter;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,6 +55,9 @@ public class ECSSlave extends AbstractCloudSlave {
     private final ECSTaskTemplate template;
     private String taskArn;
     private String taskDefinitonArn;
+    private State taskState;
+
+    public enum State { None, Initializing, Running, Stopping }
 
     public ECSSlave(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                     ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
@@ -71,6 +72,7 @@ public class ECSSlave extends AbstractCloudSlave {
                 new ArrayList<>());
         this.cloudName = cloudName;
         this.template = template;
+        this.taskState=State.None;
     }
 
 
@@ -90,7 +92,44 @@ public class ECSSlave extends AbstractCloudSlave {
         this.taskArn = taskArn;
     }
 
+    public State getTaskState() {return taskState;}
 
+    public void setTaskState(State currentState) {
+        taskState = currentState;
+        switch (taskState) {
+            case Initializing: {
+                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Initializing");
+                ECSComputer computer = (ECSComputer) getComputer();
+                if (computer != null) {
+                    computer.setAcceptingTasks(false);
+                }
+                break;
+            }
+            case Running: {
+                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Running");
+
+                ECSComputer computer = (ECSComputer) getComputer();
+                if (computer != null) {
+                    computer.setAcceptingTasks(true);
+                }
+                break;
+            }
+            case Stopping: {
+                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Stopping");
+
+                ECSComputer computer = (ECSComputer) getComputer();
+                if (computer != null) {
+                    computer.setAcceptingTasks(false);
+                }
+                try {
+                    terminate();
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Error Terminating Slave when state set to Stopping");
+                }
+                break;
+            }
+        }
+    }
     @Override
     public AbstractCloudComputer createComputer() {
         return new ECSComputer(this);
@@ -106,8 +145,14 @@ public class ECSSlave extends AbstractCloudSlave {
             LOGGER.log(Level.SEVERE, "Unable to terminate agent {}. Cloud may have been removed. There may be leftover tasks", name);
         }
 
-        //TODO
+        VirtualChannel channel=this.getChannel();
+        if(channel!=null)
+        {
+            LOGGER.log(Level.INFO, "Closing Channel for agent {0}", name);
+            channel.close();
+        }
         if (taskArn != null && cloud != null) {
+            LOGGER.log(Level.INFO, "Deleting Task: {0} for agent {1}", new Object[] {taskArn, name});
             cloud.deleteTask(taskArn);
         }
     }
@@ -233,14 +278,14 @@ public class ECSSlave extends AbstractCloudSlave {
                     cloud.name,
                     label==null?ecsTaskTemplate.getLabel(): label,
                     computerLauncher==null?new ECSLauncher(): computerLauncher,
-                    retentionStrategy==null?determineRetentionStrategy(): retentionStrategy);
+                    new ECSOneUseRetentionStrategy(1));
         }
 
 
 
         private RetentionStrategy determineRetentionStrategy() {
             //TODO
-            return new CloudRetentionStrategy(1);
+            return new ECSOneUseRetentionStrategy(1);
         }
     }
 }
