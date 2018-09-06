@@ -198,6 +198,12 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     @Nullable
     private String containerUser;
 
+    private int idleTerminationMinutes;
+
+
+
+    private boolean singleRunTask;
+
     private List<EnvironmentEntry> environments;
     private List<ExtraHostEntry> extraHosts;
     private List<PortMappingEntry> portMappings;
@@ -391,9 +397,27 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
     public String getLaunchType() {
         if (StringUtils.trimToNull(this.launchType) == null) {
-            return LaunchType.EC2.toString();
+            return LaunchType.FARGATE.toString();
         }
         return launchType;
+    }
+
+    public int getIdleTerminationMinutes() {
+        return idleTerminationMinutes;
+    }
+
+    @DataBoundSetter
+    public void setIdleTerminationMinutes(int idleTerminationMinutes) {
+        this.idleTerminationMinutes = idleTerminationMinutes;
+    }
+
+    public boolean isSingleRunTask() {
+        return singleRunTask;
+    }
+
+    @DataBoundSetter
+    public void setSingleRunTask(boolean singleRunTask) {
+        this.singleRunTask = singleRunTask;
     }
 
     public String getLogDriver() {

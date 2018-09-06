@@ -25,8 +25,7 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy.ECSOneUseRetentionStrategy;
-import hudson.model.Computer;
+import com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy.ECSRetentionStrategy;
 import hudson.model.Descriptor;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
@@ -269,23 +268,16 @@ public class ECSSlave extends AbstractCloudSlave {
             return this;
         }
 
-        public ECSSlave build() throws IOException, Descriptor.FormException {
+        public ECSSlave build(ECSService service) throws IOException, Descriptor.FormException {
             Validate.notNull(ecsTaskTemplate);
             Validate.notNull(cloud);
-            return new ECSSlave(name==null? getSlaveName(ecsTaskTemplate): name,
+            return new ECSSlave(name == null ? getSlaveName(ecsTaskTemplate) : name,
                     ecsTaskTemplate,
-                    nodeDescription==null? ecsTaskTemplate.getTemplateName(): nodeDescription,
+                    nodeDescription == null ? ecsTaskTemplate.getTemplateName() : nodeDescription,
                     cloud.name,
-                    label==null?ecsTaskTemplate.getLabel(): label,
-                    computerLauncher==null?new ECSLauncher(): computerLauncher,
-                    new ECSOneUseRetentionStrategy(1));
-        }
-
-
-
-        private RetentionStrategy determineRetentionStrategy() {
-            //TODO
-            return new ECSOneUseRetentionStrategy(1);
+                    label == null ? ecsTaskTemplate.getLabel() : label,
+                    computerLauncher == null ? new ECSLauncher(service) : computerLauncher,
+                    new ECSRetentionStrategy(ecsTaskTemplate.isSingleRunTask(), ecsTaskTemplate.getIdleTerminationMinutes()));
         }
     }
 }

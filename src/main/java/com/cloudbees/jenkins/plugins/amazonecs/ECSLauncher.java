@@ -17,9 +17,11 @@ import static java.util.logging.Level.SEVERE;
 class ECSLauncher extends JNLPLauncher {
 
     private static final Logger LOGGER = Logger.getLogger(ECSLauncher.class.getName());
+    private final ECSService service;
 
-    ECSLauncher() {
+    ECSLauncher(ECSService service) {
         super(false);
+        this.service=service;
     }
 
     @Override
@@ -50,14 +52,13 @@ class ECSLauncher extends JNLPLauncher {
         slave.setTaskState(ECSSlave.State.Initializing);
         ECSCloud cloud = slave.getCloud();
         ECSTaskTemplate template = slave.getTemplate();
-        ECSService service = cloud.getEcsService();
 
         synchronized (cloud.getCluster()) {
             try {
                 TaskDefinition taskDefinition;
 
                 if (template.getTaskDefinitionOverride() == null) {
-                    taskDefinition = cloud.getEcsService().registerTemplate(slave.getCloud(), template);
+                    taskDefinition = service.registerTemplate(slave.getCloud(), template);
                 } else {
                     LOGGER.log(Level.FINE, "Attempting to find task definition family or ARN: {0}", template.getTaskDefinitionOverride());
 

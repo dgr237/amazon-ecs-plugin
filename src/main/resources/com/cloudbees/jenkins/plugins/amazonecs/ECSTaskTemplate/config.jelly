@@ -83,6 +83,12 @@
     <f:entry title="${%ContainerUser}" field="containerUser">
       <f:textbox />
     </f:entry>
+    <f:entry title="${%Idle Termination Minutes}" field="idleTerminationMinutes">
+        <f:number clazz="required number" default="3"/>
+    </f:entry>
+    <f:entry title="${%Single Run Task}" field="singleRunTask">
+        <f:checkbox default="true"/>
+    </f:entry>
     <f:entry title="${%Logging Driver}" field="logDriver">
       <f:textbox />
     </f:entry>

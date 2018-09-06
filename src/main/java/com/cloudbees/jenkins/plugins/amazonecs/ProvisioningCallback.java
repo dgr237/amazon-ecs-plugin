@@ -8,10 +8,12 @@ import java.util.concurrent.Callable;
 class ProvisioningCallback implements Callable<Node> {
     private final ECSCloud cloud;
     private final ECSTaskTemplate template;
+    private final ECSService service;
 
-    ProvisioningCallback(@Nonnull ECSCloud cloud, @Nonnull ECSTaskTemplate template) {
+    ProvisioningCallback(@Nonnull ECSCloud cloud, @Nonnull ECSService service, @Nonnull ECSTaskTemplate template) {
         this.cloud=cloud;
         this.template=template;
+        this.service=service;
     }
 
     @Override
@@ -19,6 +21,6 @@ class ProvisioningCallback implements Callable<Node> {
         return ECSSlave.builder()
                 .ecsTaskTemplate(template)
                 .cloud(cloud)
-                .build();
+                .build(service);
     }
 }
