@@ -268,7 +268,7 @@ public class ECSSlave extends AbstractCloudSlave {
             return this;
         }
 
-        public ECSSlave build(ECSService service) throws IOException, Descriptor.FormException {
+        public ECSSlave build() throws IOException, Descriptor.FormException {
             Validate.notNull(ecsTaskTemplate);
             Validate.notNull(cloud);
             return new ECSSlave(name == null ? getSlaveName(ecsTaskTemplate) : name,
@@ -276,7 +276,7 @@ public class ECSSlave extends AbstractCloudSlave {
                     nodeDescription == null ? ecsTaskTemplate.getTemplateName() : nodeDescription,
                     cloud.name,
                     label == null ? ecsTaskTemplate.getLabel() : label,
-                    computerLauncher == null ? new ECSLauncher(service) : computerLauncher,
+                    computerLauncher == null ? new ECSLauncher() : computerLauncher,
                     new ECSRetentionStrategy(ecsTaskTemplate.isSingleRunTask(), ecsTaskTemplate.getIdleTerminationMinutes()));
         }
     }
