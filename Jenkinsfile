@@ -1,4 +1,5 @@
-pipeline { 
+@groovy
+pipeline {
     agent { label 'maven-java'}
     stages { 
         stage ('Build') {
@@ -6,8 +7,13 @@ pipeline {
                 sh 'mvn -Dmaven.test.failure.ignore=true clean package'
             }
             post {
-                success {
+                always {
+
                     junit 'target/surefire-reports/**/*.xml'
+
+                }
+                success {
+                    archiveArtifacts artifacts: 'target/amazon-ecs.hpi', fingerprint: true
                 }
             }
         }
