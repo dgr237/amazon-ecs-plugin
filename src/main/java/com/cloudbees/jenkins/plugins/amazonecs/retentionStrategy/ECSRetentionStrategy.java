@@ -6,29 +6,27 @@ import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.ExecutorListener;
 import hudson.model.Queue;
-import hudson.slaves.AbstractCloudComputer;
-import hudson.slaves.CloudRetentionStrategy;
 import hudson.slaves.RetentionStrategy;
-import jenkins.util.SystemProperties;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.logging.Level.WARNING;
 
-public class ECSOneUseRetentionStrategy extends RetentionStrategy<ECSComputer> implements ExecutorListener {
+public class ECSRetentionStrategy extends RetentionStrategy<ECSComputer> implements ExecutorListener {
 
-    private static final Logger LOGGER = Logger.getLogger(ECSOneUseRetentionStrategy.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ECSRetentionStrategy.class.getName());
 
     private int idleMinutes =0;
+    private boolean isSingleTask = false;
+
 
     @DataBoundConstructor
-    public ECSOneUseRetentionStrategy(int idleMinutes) {
+    public ECSRetentionStrategy(boolean isSingleTask, int idleMinutes) {
         this.idleMinutes=idleMinutes;
+        this.isSingleTask=isSingleTask;
     }
 
     @Override
@@ -37,12 +35,16 @@ public class ECSOneUseRetentionStrategy extends RetentionStrategy<ECSComputer> i
 
     @Override
     public void taskCompleted(Executor executor, Queue.Task task, long durationMS) {
-        done(executor);
+        if (isSingleTask) {
+            done(executor);
+        }
     }
 
     @Override
     public void taskCompletedWithProblems(Executor executor, Queue.Task task, long durationMS, Throwable problems) {
-        done(executor);
+        if(isSingleTask) {
+            done(executor);
+        }
     }
 
     private void done(Executor executor)
@@ -66,7 +68,7 @@ public class ECSOneUseRetentionStrategy extends RetentionStrategy<ECSComputer> i
             switch (state)
             {
                 case Running:
-                    if (c!=null && c.isIdle()) {
+                    if (c!=null && isTerminable() && c.isIdle()) {
                         final long idleMilliseconds = System.currentTimeMillis() - c.getIdleStartMilliseconds();
                         if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
                             LOGGER.log(Level.INFO, "Disconnecting {0}", c.getName());
@@ -82,5 +84,10 @@ public class ECSOneUseRetentionStrategy extends RetentionStrategy<ECSComputer> i
     @Override
     public void start(ECSComputer c) {
         c.connect(false);
+    }
+
+    public boolean isTerminable()
+    {
+        return idleMinutes!=0;
     }
 }

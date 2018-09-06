@@ -109,6 +109,11 @@ public class ECSCloud extends Cloud {
         this.maxSlaves = DEFAULT_MAX_SLAVES;
     }
 
+    void init(ECSService service)
+    {
+        this.ecsService=service;
+    }
+
     private List<ECSComputer> getCurrentComputers() {
         Computer[] all = Jenkins.get().getComputers();
         List<ECSComputer> runningECSComputers = new ArrayList<>();
@@ -128,9 +133,9 @@ public class ECSCloud extends Cloud {
     }
 
 
-    synchronized ECSService getEcsService() {
+    private synchronized ECSService getEcsService() {
         if (ecsService == null) {
-            ecsService = new ECSService(credentialsId, regionName);
+            ecsService = new ECSServiceImpl(credentialsId, regionName);
         }
         return ecsService;
     }
@@ -218,9 +223,9 @@ public class ECSCloud extends Cloud {
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
         try {
-            Set<String> allInProvisioning = InProvisioning.getAllInProvisioning(label);
+            Set<String> allInProvisioning = ECSInitializingSlaves.getAllInitializingECSSlaves(label);
             LOGGER.log(Level.FINE, () -> "Excess Workload : " + excessWorkload);
-            LOGGER.log(Level.FINE, () -> "In provisioning : " + allInProvisioning);
+            LOGGER.log(Level.FINE, () -> "Initializing ECS Agents : " + allInProvisioning.size());
             int toBeProvisioned = Math.max(0, excessWorkload - allInProvisioning.size());
             LOGGER.log(Level.INFO, "Excess workload after pending ECS agents: " + toBeProvisioned);
 
@@ -228,13 +233,13 @@ public class ECSCloud extends Cloud {
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= toBeProvisioned; i++) {
-                if (!addProvisionedSlave(template, label)) {
+                if (!checkIfAdditionalSlaveCanBeProvisioned(template, label)) {
                     break;
                 }
 				LOGGER.log(Level.INFO, "Will provision {0}, for label: {1}", new Object[]{template.getDisplayName(), label} );
 
                 r.add(new NodeProvisioner.PlannedNode(template.getDisplayName(), Computer.threadPoolForRemoting
-                  .submit(new ProvisioningCallback(this,template)), 1));
+                  .submit(new ProvisioningCallback(this, getEcsService(), template)), 1));
             }
             return r;
         } catch (Exception e) {
@@ -243,11 +248,11 @@ public class ECSCloud extends Cloud {
         }
     }
 
-    private boolean addProvisionedSlave(ECSTaskTemplate template, Label label) {
-        List<String> allRunningTasks=getEcsService().getRunningTasks(this);
-        LOGGER.log(Level.INFO, "ECS Builder Agents Running: {0}", allRunningTasks.size());
+    private boolean checkIfAdditionalSlaveCanBeProvisioned(ECSTaskTemplate template, Label label) {
+        List<String> allRunningTasks = getEcsService().getRunningTasks(this);
+        LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}", allRunningTasks.size());
         if (allRunningTasks.size() >= maxSlaves) {
-            LOGGER.log(Level.INFO, "ECS Builder Agents Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
+            LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
             return false;
         }
         return template.isFargate() || waitForSufficientClusterResources(1000 * slaveTimoutInSeconds, template);
@@ -292,7 +297,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
-            ECSService ecsService = new ECSService(credentialsId, regionName);
+            ECSService ecsService = new ECSServiceImpl(credentialsId, regionName);
             try {
                 List<String> allClusterArns=ecsService.getClusterArns();
                 final ListBoxModel options = new ListBoxModel();

@@ -12,22 +12,24 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Extension
-public class DefaultInProvisioning extends InProvisioning {
-    private static final Logger LOGGER = Logger.getLogger(DefaultInProvisioning.class.getName());
+public class ECSIntializingSlavesImpl extends ECSInitializingSlaves {
+    private static final Logger LOGGER = Logger.getLogger(ECSIntializingSlavesImpl.class.getName());
 
-    private static boolean isNotAcceptingTasks(Node n) {
+    private static boolean isInitialising(Node n) {
         ECSSlave slave=(ECSSlave) n;
-
-        return slave==null || slave.getTaskState()!= ECSSlave.State.Running;
+        if(slave==null)
+            return false;
+        else
+            return slave.getTaskState()== ECSSlave.State.Initializing;
     }
 
     @Override
     @Nonnull
-    public Set<String> getInProvisioning(@CheckForNull Label label) {
+    public Set<String> getInitializingECSSlaves(@CheckForNull Label label) {
         if (label != null) {
             return label.getNodes().stream()
                     .filter(ECSSlave.class::isInstance)
-                    .filter(DefaultInProvisioning::isNotAcceptingTasks)
+                    .filter(ECSIntializingSlavesImpl::isInitialising)
                     .map(Node::getNodeName)
                     .collect(Collectors.toSet());
         } else {
