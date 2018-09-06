@@ -109,7 +109,7 @@ public class ECSCloud extends Cloud {
         this.maxSlaves = DEFAULT_MAX_SLAVES;
     }
 
-    void init(ECSService service)
+    synchronized void init(ECSService service)
     {
         this.ecsService=service;
     }
@@ -133,7 +133,7 @@ public class ECSCloud extends Cloud {
     }
 
 
-    private synchronized ECSService getEcsService() {
+    synchronized ECSService getEcsService() {
         if (ecsService == null) {
             ecsService = new ECSServiceImpl(credentialsId, regionName);
         }
@@ -239,7 +239,7 @@ public class ECSCloud extends Cloud {
 				LOGGER.log(Level.INFO, "Will provision {0}, for label: {1}", new Object[]{template.getDisplayName(), label} );
 
                 r.add(new NodeProvisioner.PlannedNode(template.getDisplayName(), Computer.threadPoolForRemoting
-                  .submit(new ProvisioningCallback(this, getEcsService(), template)), 1));
+                  .submit(new ProvisioningCallback(this, template)), 1));
             }
             return r;
         } catch (Exception e) {

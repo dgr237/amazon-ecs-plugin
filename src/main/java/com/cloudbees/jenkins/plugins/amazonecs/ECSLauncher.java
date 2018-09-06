@@ -17,11 +17,9 @@ import static java.util.logging.Level.SEVERE;
 class ECSLauncher extends JNLPLauncher {
 
     private static final Logger LOGGER = Logger.getLogger(ECSLauncher.class.getName());
-    private final ECSService service;
 
-    ECSLauncher(ECSService service) {
+    ECSLauncher() {
         super(false);
-        this.service=service;
     }
 
     @Override
@@ -52,6 +50,7 @@ class ECSLauncher extends JNLPLauncher {
         slave.setTaskState(ECSSlave.State.Initializing);
         ECSCloud cloud = slave.getCloud();
         ECSTaskTemplate template = slave.getTemplate();
+        ECSService service= cloud.getEcsService();
 
         synchronized (cloud.getCluster()) {
             try {
