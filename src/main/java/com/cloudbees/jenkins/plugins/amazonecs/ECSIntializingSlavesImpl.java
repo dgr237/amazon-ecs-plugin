@@ -6,7 +6,9 @@ import hudson.model.Node;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -15,12 +17,14 @@ import java.util.stream.Collectors;
 public class ECSIntializingSlavesImpl extends ECSInitializingSlaves {
     private static final Logger LOGGER = Logger.getLogger(ECSIntializingSlavesImpl.class.getName());
 
+    private static final Set<ECSSlave.State> initializingStates=new HashSet<>(Arrays.asList(ECSSlave.State.Initializing, ECSSlave.State.TaskDefinitionCreated, ECSSlave.State.TaskLaunched, ECSSlave.State.TaskCreated));
+
     private static boolean isInitialising(Node n) {
         ECSSlave slave=(ECSSlave) n;
         if(slave==null)
             return false;
         else
-            return slave.getTaskState()== ECSSlave.State.Initializing;
+            return initializingStates.contains(slave.getTaskState());
     }
 
     @Override
