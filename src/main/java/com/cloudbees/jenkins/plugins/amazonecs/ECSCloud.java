@@ -282,6 +282,7 @@ public class ECSCloud extends Cloud {
         private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
 
         @Override
+        @Nonnull
         public String getDisplayName() {
             return Messages.DisplayName();
         }
