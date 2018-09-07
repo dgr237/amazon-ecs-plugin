@@ -249,11 +249,13 @@ public class ECSCloud extends Cloud {
     }
 
     private boolean checkIfAdditionalSlaveCanBeProvisioned(ECSTaskTemplate template, Label label) {
-        List<String> allRunningTasks = getEcsService().getRunningTasks(this);
-        LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}", allRunningTasks.size());
-        if (allRunningTasks.size() >= maxSlaves) {
-            LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
-            return false;
+        if (maxSlaves != 0) {
+            List<String> allRunningTasks = getEcsService().getRunningTasks(this);
+            LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}", allRunningTasks.size());
+            if (allRunningTasks.size() >= maxSlaves) {
+                LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
+                return false;
+            }
         }
         return template.isFargate() || waitForSufficientClusterResources(1000 * slaveTimoutInSeconds, template);
     }
