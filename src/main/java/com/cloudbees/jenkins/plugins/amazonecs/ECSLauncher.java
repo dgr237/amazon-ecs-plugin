@@ -49,6 +49,7 @@ class ECSLauncher extends JNLPLauncher {
 
     public static class ECSSlaveLaunchWorkflow {
 
+        private Object waitHandle=new Object();
         private final ECSComputer computer;
         private final TaskListener listener;
         private ECSSlave slave;
@@ -159,7 +160,7 @@ class ECSLauncher extends JNLPLauncher {
                     }
                     LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
                     logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
-                    wait(6000);
+                    waitHandle.wait(6000);
                 }
             } catch (ServerException | ClientException | InvalidParameterException | ClusterNotFoundException | InterruptedException ex) {
                 LOGGER.log(SEVERE, "Error Getting Task Status: " + taskArn, ex);
@@ -183,7 +184,7 @@ class ECSLauncher extends JNLPLauncher {
                     }
                     LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{slave.getNodeName(), i, j});
                     logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", slave.getNodeName(), i, j);
-                    wait(1000);
+                    waitHandle.wait(1000);
                 }
                 LOGGER.log(WARNING, "Agent "+slave.getNodeName()+" is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts. Stopping Slave.");
                 setTaskState(ECSSlave.State.Stopping);
