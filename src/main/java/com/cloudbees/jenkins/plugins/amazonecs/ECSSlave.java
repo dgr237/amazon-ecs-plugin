@@ -56,7 +56,7 @@ public class ECSSlave extends AbstractCloudSlave {
     private String taskDefinitonArn;
     private State taskState;
 
-    public enum State { None, Initializing, Running, Stopping }
+    public enum State { None, Initializing, TaskDefinitionCreated, TaskCreated, TaskLaunched, Running, Stopping }
 
     public ECSSlave(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                     ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {

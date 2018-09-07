@@ -5,14 +5,19 @@ import com.google.common.base.Throwables;
 import hudson.model.TaskListener;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.SlaveComputer;
+import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlave.State.*;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
+import static java.util.logging.Level.WARNING;
 
 class ECSLauncher extends JNLPLauncher {
 
@@ -37,25 +42,49 @@ class ECSLauncher extends JNLPLauncher {
 
         ECSComputer ecsComputer = (ECSComputer) computer;
 
-        ECSSlave slave = ecsComputer.getNode();
-        if (slave == null) {
-            throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
+        ECSSlaveLaunchWorkflow workflow=new ECSSlaveLaunchWorkflow(ecsComputer,listener);
+        workflow.run();
+    }
+
+    public static class ECSSlaveLaunchWorkflow {
+
+        private final ECSComputer computer;
+        private final TaskListener listener;
+        private ECSSlave slave;
+        private ECSTaskTemplate template;
+        private ECSCloud cloud;
+        private ECSService service;
+        private PrintStream logger;
+        private TaskDefinition taskDefinition;
+        private String taskArn;
+        private ECSSlave.State state;
+
+        public ECSSlaveLaunchWorkflow(ECSComputer computer, TaskListener listener) {
+            this.computer = computer;
+            this.listener = listener;
         }
 
-        if(slave.getTaskState()!= ECSSlave.State.None) {
-            LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
-            return;
+        public void run() {
+            slave = computer.getNode();
+            if (slave == null) {
+                throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
+            }
+
+            if (slave.getTaskState() != ECSSlave.State.None) {
+                LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
+                return;
+            }
+
+            cloud = slave.getCloud();
+            template = slave.getTemplate();
+            service = cloud.getEcsService();
+            logger = listener.getLogger();
+            setTaskState(ECSSlave.State.Initializing);
         }
 
-        slave.setTaskState(ECSSlave.State.Initializing);
-        ECSCloud cloud = slave.getCloud();
-        ECSTaskTemplate template = slave.getTemplate();
-        ECSService service= cloud.getEcsService();
-
-        synchronized (cloud.getCluster()) {
+        private void createTaskDefinition() {
+            TaskDefinition taskDefinition;
             try {
-                TaskDefinition taskDefinition;
-
                 if (template.getTaskDefinitionOverride() == null) {
                     taskDefinition = service.registerTemplate(slave.getCloud(), template);
                 } else {
@@ -68,69 +97,130 @@ class ECSLauncher extends JNLPLauncher {
 
                     LOGGER.log(Level.FINE, "Found task definition: {0}", taskDefinition.getTaskDefinitionArn());
                 }
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Error Creating Task Definition for Label: " + template.getLabel(), ex);
+                setTaskState(ECSSlave.State.Stopping);
+                return;
+            }
+            setTaskDefinition(taskDefinition);
+            setTaskState(ECSSlave.State.TaskDefinitionCreated);
+        }
 
+
+        private void runTask() {
+            try {
                 LOGGER.log(Level.INFO, "Running task definition {0} on slave {1}", new Object[]{taskDefinition.getTaskDefinitionArn(), slave.getNodeName()});
 
                 String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getDockerRunCommand(), taskDefinition);
                 LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
                         new Object[]{slave.getNodeName(), taskArn});
-                slave.setTaskArn(taskArn);
+                setTaskArn(taskArn);
+                setTaskState(ECSSlave.State.TaskCreated);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Slave " + slave.getNodeName() + " - Cannot create ECS Task", ex);
-                slave.setTaskState(ECSSlave.State.Stopping);
-                return;
+                setTaskState(ECSSlave.State.Stopping);
             }
-            int j = 100; // wait 600 seconds
+        }
 
-            String taskArn = slave.getTaskArn();
+        private void waitForTaskToRun() {
             LOGGER.log(INFO, "Waiting for Task to be running: {0}", taskArn);
 
             try {
+                int i = 0;
+                int j = 100; // wait 600 seconds
                 // wait for Pod to be running
-                for (int i = 0; i < j; i++) {
+                while (i++ < j && state == TaskCreated) {
                     String status = service.getTaskStatus(cloud, taskArn);
 
                     if (status.equals("STOPPED") || status.equals("DEPROVISIONING")) {
-                        slave.setTaskState(ECSSlave.State.Stopping);
-                        throw new IllegalStateException("Task: " + taskArn + " has been Stopped");
+                        LOGGER.log(INFO, "Task: " + taskArn + " has been Stopped");
+                        setTaskState(ECSSlave.State.Stopping);
+                        return;
                     }
 
                     if (status.equals("RUNNING")) {
-                        break;
-                    } else {
-                        LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
-                        logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
-
-                        Thread.sleep(6000);
+                        setTaskState(TaskLaunched);
+                        return;
                     }
-
+                    LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
+                    logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
+                    wait(6000);
                 }
+            } catch (Exception ex) {
+                LOGGER.log(SEVERE, "Error Getting Task Status: " + taskArn, ex);
+                setTaskState(ECSSlave.State.Stopping);
+            }
+        }
 
-                for (int i = 0; i < cloud.getSlaveTimoutInSeconds(); i++) {
+        private void waitForAgentToConnect() {
+            int i = 0;
+            int j = cloud.getSlaveTimoutInSeconds();
+            try {
+                while (i++ < j && state == TaskLaunched) {
                     if (slave.getComputer() == null) {
-                        throw new IllegalStateException("Node was deleted, computer is null");
+                        LOGGER.log(INFO, "Node was deleted, computer is null");
+                        setTaskState(Stopping);
+                        return;
                     }
                     if (slave.getComputer().isOnline()) {
-                        slave.setTaskState(ECSSlave.State.Running);
-                        break;
+                        setTaskState(ECSSlave.State.Running);
+                        return;
                     }
                     LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{taskArn, i, j});
                     logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", taskArn, i, j);
-                    Thread.sleep(1000);
+                    wait(1000);
                 }
-                if (slave.getTaskState() != ECSSlave.State.Running) {
-                    throw new IllegalStateException("Agent is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts");
-                }
+                LOGGER.log(WARNING, "Agent is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts. Stopping Slave.");
+                setTaskState(ECSSlave.State.Stopping);
             } catch (Exception ex) {
-                LOGGER.log(SEVERE, "Error Getting Task Status: "+taskArn, ex);
-                slave.setTaskState(ECSSlave.State.Stopping);
-                return;
+                LOGGER.log(SEVERE, "Error Getting Task Status: " + taskArn, ex);
+                setTaskState(ECSSlave.State.Stopping);
             }
+        }
+
+
+        private void saveSlave() {
             try {
                 slave.save();
             } catch (IOException ex) {
                 LOGGER.log(Level.WARNING, "Could not save() agent", ex);
             }
         }
+
+        private void setTaskDefinition(TaskDefinition taskDefinition) {
+            this.taskDefinition = taskDefinition;
+        }
+
+        private void setTaskArn(String taskArn) {
+            this.taskArn = taskArn;
+            slave.setTaskArn(taskArn);
+        }
+
+        private void setTaskState(ECSSlave.State state) {
+            this.state = state;
+
+            slave.setTaskState(state);
+            switch (this.state) {
+                case Initializing:
+                    createTaskDefinition();
+                    break;
+                case TaskDefinitionCreated:
+                    runTask();
+                    break;
+                case TaskCreated:
+                    waitForTaskToRun();
+                    break;
+                case TaskLaunched:
+                    waitForAgentToConnect();
+                    break;
+
+                case Running:
+                    saveSlave();
+                    break;
+                case Stopping:
+                    break;
+            }
+        }
+
     }
 }
