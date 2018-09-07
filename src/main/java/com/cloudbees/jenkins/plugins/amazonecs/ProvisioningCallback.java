@@ -16,7 +16,7 @@ class ProvisioningCallback implements Callable<Node> {
 
     @Override
     public Node call() throws Exception {
-        return ECSSlave.builder()
+        return ECSSlaveImpl.builder()
                 .ecsTaskTemplate(template)
                 .cloud(cloud)
                 .build();
