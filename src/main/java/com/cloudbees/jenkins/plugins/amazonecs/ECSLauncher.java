@@ -1,7 +1,8 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.amazonaws.services.ecs.model.*;
 import com.google.common.base.Throwables;
+import hudson.AbortException;
 import hudson.model.TaskListener;
 import hudson.slaves.JNLPLauncher;
 import hudson.slaves.SlaveComputer;
@@ -65,21 +66,35 @@ class ECSLauncher extends JNLPLauncher {
         }
 
         public void run() {
-            slave = computer.getNode();
-            if (slave == null) {
-                throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
-            }
+            try {
+                slave = computer.getNode();
+                if (slave == null) {
+                    throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
+                }
 
-            if (slave.getTaskState() != ECSSlave.State.None) {
-                LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
-                return;
-            }
+                if (slave.getTaskState() != ECSSlave.State.None) {
+                    LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
+                    return;
+                }
 
-            cloud = slave.getCloud();
-            template = slave.getTemplate();
-            service = cloud.getEcsService();
-            logger = listener.getLogger();
-            setTaskState(ECSSlave.State.Initializing);
+                cloud = slave.getCloud();
+                if (cloud == null) {
+                    throw new IllegalStateException("Cloud has been removed: " + slave.getNodeName());
+                }
+                template = slave.getTemplate();
+                if (template == null) {
+                    throw new IllegalStateException("Template is null for Slave: " + slave.getNodeName());
+                }
+                service = cloud.getEcsService();
+                if (service == null) {
+                    throw new IllegalStateException("ECSService is null for Slave: " + slave.getNodeName());
+                }
+                logger = listener.getLogger();
+                setTaskState(ECSSlave.State.Initializing);
+            } catch (IllegalStateException ex) {
+                LOGGER.log(WARNING, "Error launching slave: " + slave.getNodeName(), ex);
+                setTaskState(ECSSlave.State.Stopping);
+            }
         }
 
         private void createTaskDefinition() {
@@ -97,7 +112,7 @@ class ECSLauncher extends JNLPLauncher {
 
                     LOGGER.log(Level.FINE, "Found task definition: {0}", taskDefinition.getTaskDefinitionArn());
                 }
-            } catch (Exception ex) {
+            } catch (ServerException | ClientException | InvalidParameterException | ClusterNotFoundException ex) {
                 LOGGER.log(Level.WARNING, "Error Creating Task Definition for Label: " + template.getLabel(), ex);
                 setTaskState(ECSSlave.State.Stopping);
                 return;
@@ -116,7 +131,7 @@ class ECSLauncher extends JNLPLauncher {
                         new Object[]{slave.getNodeName(), taskArn});
                 setTaskArn(taskArn);
                 setTaskState(ECSSlave.State.TaskCreated);
-            } catch (Exception ex) {
+            } catch (ServerException | ClientException | AbortException | UnsupportedFeatureException | PlatformUnknownException | PlatformTaskDefinitionIncompatibilityException | AccessDeniedException | BlockedException | InvalidParameterException | ClusterNotFoundException ex) {
                 LOGGER.log(Level.WARNING, "Slave " + slave.getNodeName() + " - Cannot create ECS Task", ex);
                 setTaskState(ECSSlave.State.Stopping);
             }
@@ -146,7 +161,7 @@ class ECSLauncher extends JNLPLauncher {
                     logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
                     wait(6000);
                 }
-            } catch (Exception ex) {
+            } catch (ServerException | ClientException | InvalidParameterException | ClusterNotFoundException | InterruptedException ex) {
                 LOGGER.log(SEVERE, "Error Getting Task Status: " + taskArn, ex);
                 setTaskState(ECSSlave.State.Stopping);
             }
@@ -166,14 +181,14 @@ class ECSLauncher extends JNLPLauncher {
                         setTaskState(ECSSlave.State.Running);
                         return;
                     }
-                    LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{taskArn, i, j});
-                    logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", taskArn, i, j);
+                    LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{slave.getNodeName(), i, j});
+                    logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", slave.getNodeName(), i, j);
                     wait(1000);
                 }
-                LOGGER.log(WARNING, "Agent is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts. Stopping Slave.");
+                LOGGER.log(WARNING, "Agent "+slave.getNodeName()+" is not connected after " + cloud.getSlaveTimoutInSeconds() + " attempts. Stopping Slave.");
                 setTaskState(ECSSlave.State.Stopping);
-            } catch (Exception ex) {
-                LOGGER.log(SEVERE, "Error Getting Task Status: " + taskArn, ex);
+            } catch (InterruptedException ex) {
+                LOGGER.log(SEVERE, "Error Waiting for Agent to connect: " + slave.getNodeName(), ex);
                 setTaskState(ECSSlave.State.Stopping);
             }
         }
@@ -183,7 +198,7 @@ class ECSLauncher extends JNLPLauncher {
             try {
                 slave.save();
             } catch (IOException ex) {
-                LOGGER.log(Level.WARNING, "Could not save() agent", ex);
+                LOGGER.log(Level.WARNING, "Could not save agent: "+slave.getNodeName(), ex);
             }
         }
 
@@ -213,7 +228,6 @@ class ECSLauncher extends JNLPLauncher {
                 case TaskLaunched:
                     waitForAgentToConnect();
                     break;
-
                 case Running:
                     saveSlave();
                     break;
