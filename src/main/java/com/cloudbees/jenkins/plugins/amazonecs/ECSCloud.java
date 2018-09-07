@@ -83,6 +83,7 @@ public class ECSCloud extends Cloud {
     private int maxSlaves;
 
     private ECSService ecsService;
+    private ECSInitializingSlavesResolver initializingSlavesResolver;
 
     @DataBoundConstructor
     public ECSCloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
@@ -109,35 +110,23 @@ public class ECSCloud extends Cloud {
         this.maxSlaves = DEFAULT_MAX_SLAVES;
     }
 
-    synchronized void init(ECSService service)
-    {
-        this.ecsService=service;
-    }
-
-    private List<ECSComputer> getCurrentComputers() {
-        Computer[] all = Jenkins.get().getComputers();
-        List<ECSComputer> runningECSComputers = new ArrayList<>();
-        for (Computer computer : all) {
-            if (computer instanceof ECSComputer) {
-                ECSComputer ecsComputer = (ECSComputer) computer;
-                if (ecsComputer.isConnecting() || ecsComputer.isAcceptingTasks()) {
-                    runningECSComputers.add(ecsComputer);
-                }
-            }
-        }
-        return runningECSComputers;
-    }
-
     private boolean waitForSufficientClusterResources(int timeoutSeconds, ECSTaskTemplate template) {
         return getEcsService().areSufficientClusterResourcesAvailable(timeoutSeconds, template, getCluster());
     }
 
 
-    synchronized ECSService getEcsService() {
+    ECSService getEcsService() {
         if (ecsService == null) {
             ecsService = new ECSServiceImpl(credentialsId, regionName);
         }
         return ecsService;
+    }
+
+    ECSInitializingSlavesResolver initializingSlavesResolver() {
+        if (initializingSlavesResolver == null) {
+            initializingSlavesResolver = new ECSInitializingSlavesResolverImpl();
+        }
+        return initializingSlavesResolver;
     }
 
     @Nonnull
@@ -207,7 +196,7 @@ public class ECSCloud extends Cloud {
         return getTemplate(label) != null;
     }
 
-    private ECSTaskTemplate getTemplate(Label label) {
+    public ECSTaskTemplate getTemplate(Label label) {
         if (label == null) {
             return null;
         }
@@ -223,7 +212,7 @@ public class ECSCloud extends Cloud {
     @Override
     public Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
         try {
-            Set<String> allInProvisioning = ECSInitializingSlaves.getAllInitializingECSSlaves(label);
+            Set<String> allInProvisioning = initializingSlavesResolver().getInitializingECSSlaves(label);
             LOGGER.log(Level.FINE, () -> "Excess Workload : " + excessWorkload);
             LOGGER.log(Level.FINE, () -> "Initializing ECS Agents : " + allInProvisioning.size());
             int toBeProvisioned = Math.max(0, excessWorkload - allInProvisioning.size());

@@ -1,7 +1,8 @@
 package com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy;
 
 import com.cloudbees.jenkins.plugins.amazonecs.ECSComputer;
-import com.cloudbees.jenkins.plugins.amazonecs.ECSSlave;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSComputerImpl;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveImpl;
 import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.ExecutorListener;
@@ -15,7 +16,7 @@ import java.util.logging.Logger;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class ECSRetentionStrategy extends RetentionStrategy<ECSComputer> implements ExecutorListener {
+public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> implements ExecutorListener {
 
     private static final Logger LOGGER = Logger.getLogger(ECSRetentionStrategy.class.getName());
 
@@ -51,20 +52,20 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputer> impleme
     {
         Computer computer=executor.getOwner();
 
-        if(computer instanceof ECSComputer)
+        if(computer instanceof ECSComputerImpl)
         {
             LOGGER.log(Level.INFO,"Terminating {0} because it has completed",computer.getName());
-            ECSComputer ecsComputer=(ECSComputer)computer;
-            ecsComputer.getNode().setTaskState(ECSSlave.State.Stopping);
+            ECSComputerImpl ecsComputer=(ECSComputerImpl)computer;
+            ecsComputer.getNode().setTaskState(ECSSlaveImpl.State.Stopping);
         }
     }
 
     @Override
-    public long check(@Nonnull ECSComputer c) {
-        ECSSlave slave=c.getNode();
+    public long check(@Nonnull ECSComputerImpl c) {
+        ECSSlaveImpl slave=c.getNode();
         if(slave!=null)
         {
-            ECSSlave.State state=slave.getTaskState();
+            ECSSlaveImpl.State state=slave.getTaskState();
             switch (state)
             {
                 case Running:
@@ -72,7 +73,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputer> impleme
                         final long idleMilliseconds = System.currentTimeMillis() - c.getIdleStartMilliseconds();
                         if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
                             LOGGER.log(Level.INFO, "Disconnecting {0}", c.getName());
-                            c.getNode().setTaskState(ECSSlave.State.Stopping);
+                            c.getNode().setTaskState(ECSSlaveImpl.State.Stopping);
                         }
                     }
                     break;
@@ -82,7 +83,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputer> impleme
     }
 
     @Override
-    public void start(ECSComputer c) {
+    public void start(ECSComputerImpl c) {
         c.connect(false);
     }
 

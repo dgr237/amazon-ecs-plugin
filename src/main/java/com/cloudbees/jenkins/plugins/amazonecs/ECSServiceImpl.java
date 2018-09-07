@@ -280,14 +280,14 @@ class ECSServiceImpl implements ECSService {
     }
 
     @Override
-    public String runEcsTask(final ECSSlave slave, final ECSTaskTemplate template, String clusterArn, Collection<String> command, TaskDefinition taskDefinition) throws  AbortException {
+    public String runEcsTask(final ECSSlave slave, final ECSTaskTemplate template, String clusterArn, Collection<String> command, TaskDefinition taskDefinition) throws AbortException {
         KeyValuePair envNodeName = new KeyValuePair();
         envNodeName.setName("SLAVE_NODE_NAME");
-        envNodeName.setValue(slave.getComputer().getName());
+        envNodeName.setValue(slave.getECSComputer().getName());
 
         KeyValuePair envNodeSecret = new KeyValuePair();
         envNodeSecret.setName("SLAVE_NODE_SECRET");
-        envNodeSecret.setValue(slave.getComputer().getJnlpMac());
+        envNodeSecret.setValue(slave.getECSComputer().getJnlpMac());
 
         // by convention, we assume the jenkins slave container is the first container in the task definition. ECS requires
         // all task definitions to contain at least one container, and all containers to have a name, so we do not need
