@@ -55,7 +55,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         if(computer instanceof ECSComputerImpl)
         {
             LOGGER.log(Level.INFO,"Terminating {0} because it has completed",computer.getName());
-            ECSComputerImpl ecsComputer=(ECSComputerImpl)computer;
+            ECSComputer ecsComputer=(ECSComputer)computer;
             ecsComputer.getNode().setTaskState(ECSSlaveImpl.State.Stopping);
         }
     }
