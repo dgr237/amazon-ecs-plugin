@@ -65,7 +65,7 @@ public class ECSLauncherTest {
         ECSCloud testCloud;
         ECSTaskTemplate testTemplate;
         ECSSlave mockSlave;
-        ECSSlaveStateManager mockInnerSlave;
+        ECSSlaveStateManager stateManager;
         ECSComputer mockComputer;
         TaskListener mockTaskListener;
         final String taskDefinitionArn="DummyTaskDefinitionArn";
@@ -102,15 +102,15 @@ public class ECSLauncherTest {
 
         private ECSSlave createSlave() {
             ECSSlave slave = mock(ECSSlave.class);
-            mockInnerSlave=mock(ECSSlaveStateManager.class);
+            stateManager =mock(ECSSlaveStateManager.class);
 
-            Mockito.when(slave.getInnerSlave()).thenReturn(mockInnerSlave);
+            Mockito.when(slave.getStateManager()).thenReturn(stateManager);
             Mockito.when(slave.getNodeName()).thenReturn(nodeName);
             Mockito.when(slave.getECSComputer()).thenReturn(mockComputer);
             Mockito.when(slave.getCloud()).thenReturn(testCloud);
-            Mockito.when(mockInnerSlave.getDockerRunCommand()).thenReturn(Arrays.asList("MyRunCommand"));
-            Mockito.when(mockInnerSlave.getTemplate()).thenReturn(testTemplate);
-            Mockito.when(mockInnerSlave.getTaskState()).thenAnswer(new Answer<State>() {
+            Mockito.when(stateManager.getDockerRunCommand()).thenReturn(Arrays.asList("MyRunCommand"));
+            Mockito.when(stateManager.getTemplate()).thenReturn(testTemplate);
+            Mockito.when(stateManager.getTaskState()).thenAnswer(new Answer<State>() {
                 public State answer(InvocationOnMock invocation) {
                     return testState;
                 }
@@ -119,12 +119,12 @@ public class ECSLauncherTest {
                 State state = innvocation.getArgumentAt(0, State.class);
                 testState = state;
                 return null;
-            }).when(mockInnerSlave).setTaskState(any(State.class));
+            }).when(stateManager).setTaskState(any(State.class));
             doAnswer((Answer) innvocation -> {
                 String taskArnToCkeck = innvocation.getArgumentAt(0, String.class);
                 Assert.assertEquals(taskArn, taskArnToCkeck);
                 return null;
-            }).when(mockInnerSlave).setTaskArn(any(String.class));
+            }).when(stateManager).setTaskArn(any(String.class));
             return slave;
         }
 
@@ -166,7 +166,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Running, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Running, stateManager.getTaskState());
         }
     }
 
@@ -186,7 +186,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Running, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Running, stateManager.getTaskState());
         }
     }
 
@@ -203,7 +203,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
         }
     }
 
@@ -218,7 +218,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
         }
     }
 
@@ -233,7 +233,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
         }
     }
 
@@ -248,7 +248,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, mockInnerSlave.getTaskState());
+            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
         }
     }
 

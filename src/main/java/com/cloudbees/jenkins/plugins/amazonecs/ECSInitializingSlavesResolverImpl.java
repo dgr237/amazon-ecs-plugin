@@ -26,7 +26,7 @@ public class ECSInitializingSlavesResolverImpl implements ECSInitializingSlavesR
         if (slave == null)
             return false;
         else
-            return initializingStates.contains(slave.getInnerSlave().getTaskState());
+            return initializingStates.contains(slave.getStateManager().getTaskState());
     }
 
     /**
