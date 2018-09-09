@@ -14,6 +14,7 @@ pipeline {
                 }
                 success {
                     archiveArtifacts artifacts: 'target/amazon-ecs.hpi', fingerprint: true
+                    archiveArtifacts artifacts: 'target/site/cobertura/**', fingerprint: true
                     step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '**/coverage.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])
                 }
             }
