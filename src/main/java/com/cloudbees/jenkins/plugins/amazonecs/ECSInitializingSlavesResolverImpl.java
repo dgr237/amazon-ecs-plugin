@@ -11,20 +11,22 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.*;
+
 
 public class ECSInitializingSlavesResolverImpl implements ECSInitializingSlavesResolver {
 
     private static final Logger LOGGER = Logger.getLogger(ECSInitializingSlavesResolverImpl.class.getName());
 
 
-    private static final Set<ECSSlaveImpl.State> initializingStates = new HashSet<>(Arrays.asList(ECSSlaveImpl.State.Initializing, ECSSlaveImpl.State.TaskDefinitionCreated, ECSSlaveImpl.State.TaskLaunched, ECSSlaveImpl.State.TaskCreated));
+    private static final Set<State> initializingStates = new HashSet<>(Arrays.asList(State.Initializing, State.TaskDefinitionCreated, State.TaskLaunched, State.TaskCreated));
 
     private static boolean isInitialising(Node n) {
         ECSSlaveImpl slave = (ECSSlaveImpl) n;
         if (slave == null)
             return false;
         else
-            return initializingStates.contains(slave.getTaskState());
+            return initializingStates.contains(slave.getInnerSlave().getTaskState());
     }
 
     /**

@@ -14,6 +14,8 @@ import javax.annotation.Nonnull;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> implements ExecutorListener {
@@ -56,7 +58,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         {
             LOGGER.log(Level.INFO,"Terminating {0} because it has completed",computer.getName());
             ECSComputer ecsComputer=(ECSComputer)computer;
-            ecsComputer.getNode().setTaskState(ECSSlaveImpl.State.Stopping);
+            ecsComputer.getNode().getInnerSlave().setTaskState(State.Stopping);
         }
     }
 
@@ -65,7 +67,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         ECSSlaveImpl slave=c.getNode();
         if(slave!=null)
         {
-            ECSSlaveImpl.State state=slave.getTaskState();
+            State state=slave.getInnerSlave().getTaskState();
             switch (state)
             {
                 case Running:
@@ -73,7 +75,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
                         final long idleMilliseconds = System.currentTimeMillis() - c.getIdleStartMilliseconds();
                         if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
                             LOGGER.log(Level.INFO, "Disconnecting {0}", c.getName());
-                            c.getNode().setTaskState(ECSSlaveImpl.State.Stopping);
+                            c.getNode().getInnerSlave().setTaskState(State.Stopping);
                         }
                     }
                     break;

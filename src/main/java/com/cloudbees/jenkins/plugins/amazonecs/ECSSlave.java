@@ -1,17 +1,15 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
+import hudson.remoting.VirtualChannel;
+
 import java.io.IOException;
-import java.util.Collection;
 
 public interface ECSSlave {
-    ECSCloud getCloud();
-    ECSSlaveImpl.State getTaskState();
-    void setTaskState(ECSSlaveImpl.State state);
-    ECSTaskTemplate getTemplate();
+    ECSSlaveStateManager getInnerSlave();
     ECSComputer getECSComputer();
-    void save() throws IOException;
-    void setTaskArn(String taskArn);
+    ECSCloud getCloud();
+    void terminate() throws InterruptedException,IOException;
+    VirtualChannel getChannel();
     String getNodeName();
-    Collection<String> getDockerRunCommand();
-    Boolean isOnline();
+    void save() throws IOException;
 }

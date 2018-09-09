@@ -26,10 +26,8 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy.ECSRetentionStrategy;
-import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.TaskListener;
-import hudson.remoting.VirtualChannel;
 import hudson.slaves.*;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang.RandomStringUtils;
@@ -39,7 +37,6 @@ import org.apache.commons.lang.Validate;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -51,13 +48,11 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
+    private ECSSlaveStateManager slave;
     private final String cloudName;
     private final ECSTaskTemplate template;
-    private String taskArn;
-    private String taskDefinitonArn;
-    private State taskState;
 
-    public enum State { None, Initializing, TaskDefinitionCreated, TaskCreated, TaskLaunched, Running, Stopping }
+
 
     public ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                         ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
@@ -70,9 +65,9 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 launcher,
                 rs,
                 new ArrayList<>());
-        this.cloudName = cloudName;
-        this.template = template;
-        this.taskState=State.None;
+        slave=new ECSSlaveStateManager(this,name,template);
+        this.cloudName=cloudName;
+        this.template=template;
     }
 
 
@@ -95,78 +90,17 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     }
 
-    public String getTaskArn() {
-        return taskArn;
+    public ECSSlaveStateManager getInnerSlave() {
+        return slave;
     }
 
-    public void setTaskArn(String taskArn) {
-        this.taskArn = taskArn;
-    }
-
-    public State getTaskState() {return taskState;}
-
-    public void setTaskState(State currentState) {
-        taskState = currentState;
-        switch (taskState) {
-            case Initializing: {
-                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Initializing");
-                ECSComputerImpl computer = (ECSComputerImpl) getComputer();
-                if (computer != null) {
-                    computer.setAcceptingTasks(false);
-                }
-                break;
-            }
-            case Running: {
-                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Running");
-
-                ECSComputerImpl computer = (ECSComputerImpl) getComputer();
-                if (computer != null) {
-                    computer.setAcceptingTasks(true);
-                }
-                break;
-            }
-            case Stopping: {
-                LOGGER.log(Level.INFO,"Setting Slave "+getNodeName()+" State to Stopping");
-
-                ECSComputerImpl computer = (ECSComputerImpl) getComputer();
-                if (computer != null) {
-                    computer.setAcceptingTasks(false);
-                }
-                try {
-                    terminate();
-                } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Error Terminating Slave when state set to Stopping");
-                }
-                break;
-            }
-        }
-    }
     @Override
     public AbstractCloudComputer createComputer() {
         return new ECSComputerImpl(this);
     }
 
     @Override
-    protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
-        LOGGER.log(Level.INFO, "Terminating ECS Task Instance for agent {0}", name);
-        ECSCloud cloud = null;
-        try {
-            cloud = getCloud();
-        } catch (IllegalStateException e) {
-            LOGGER.log(Level.SEVERE, "Unable to terminate agent {}. Cloud may have been removed. There may be leftover tasks", name);
-        }
-
-        VirtualChannel channel=this.getChannel();
-        if(channel!=null)
-        {
-            LOGGER.log(Level.INFO, "Closing Channel for agent {0}", name);
-            channel.close();
-        }
-        if (taskArn != null && cloud != null) {
-            LOGGER.log(Level.INFO, "Deleting Task: {0} for agent {1}", new Object[] {taskArn, name});
-            cloud.deleteTask(taskArn);
-        }
-    }
+    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { slave._terminate(listener); }
 
     @Override
     public ECSCloud getCloud() {
@@ -178,29 +112,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
         }
     }
 
-    public Collection<String> getDockerRunCommand() {
-        ECSCloud cloud=getCloud();
-        Collection<String> command = new ArrayList<>();
-        command.add("-url");
-        command.add(cloud.getJenkinsUrl());
-        String tunnel=cloud.getTunnel();
-        if (StringUtils.isNotBlank(tunnel)) {
-            command.add("-tunnel");
-            command.add(tunnel);
-        }
-        command.add(getComputer().getJnlpMac());
-        command.add(getComputer().getName());
-        return command;
-    }
-
-    @Override
-    public Boolean isOnline() {
-        SlaveComputer computer=getComputer();
-        if(computer==null)
-            return false;
-        return computer.isOnline();
-    }
-
+    public Collection<String> getDockerRunCommand() { return slave.getDockerRunCommand(); }
 
     public static ECSSlaveImpl.Builder builder() {
         return new ECSSlaveImpl.Builder();
@@ -217,8 +129,6 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
         name=name.substring(0, Math.min(name.length(),62-randString.length()));
         return String.format("%s-%s",name,randString);
     }
-
-
 
     @Override
     public String toString() {

@@ -11,10 +11,10 @@ import java.io.PrintStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveImpl.State.*;
-import static java.util.logging.Level.INFO;
-import static java.util.logging.Level.SEVERE;
-import static java.util.logging.Level.WARNING;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State;
+
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State.*;
+import static java.util.logging.Level.*;
 
 class ECSLauncher extends JNLPLauncher {
 
@@ -58,7 +58,7 @@ class ECSLauncher extends JNLPLauncher {
         private PrintStream logger;
         private TaskDefinition taskDefinition;
         private String taskArn;
-        private ECSSlaveImpl.State state;
+        private State state;
 
         public ECSSlaveLaunchWorkflow(ECSComputer computer, TaskListener listener) {
             this.computer = computer;
@@ -72,7 +72,7 @@ class ECSLauncher extends JNLPLauncher {
                     throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
                 }
 
-                if (slave.getTaskState() != None) {
+                if (slave.getInnerSlave().getTaskState() != None) {
                     LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
                     return;
                 }
@@ -81,13 +81,13 @@ class ECSLauncher extends JNLPLauncher {
                 if (cloud == null) {
                     throw new IllegalStateException("Cloud has been removed: " + slave.getNodeName());
                 }
-                template = slave.getTemplate();
+                template = slave.getInnerSlave().getTemplate();
                 if (template == null) {
                     throw new IllegalStateException("Template is null for Slave: " + slave.getNodeName());
                 }
                 service = cloud.getEcsService();
                 if (service == null) {
-                    throw new IllegalStateException("ECSService is null for Slave: " + slave.getNodeName());
+                    throw new IllegalStateException("ECSClient is null for Slave: " + slave.getNodeName());
                 }
                 logger = listener.getLogger();
                 setTaskState(Initializing);
@@ -103,7 +103,7 @@ class ECSLauncher extends JNLPLauncher {
                 if (template.getTaskDefinitionOverride() == null) {
                     taskDefinition = service.registerTemplate(slave.getCloud(), template);
                 } else {
-                    LOGGER.log(Level.FINE, "Attempting to find task definition family or ARN: {0}", template.getTaskDefinitionOverride());
+                    LOGGER.log(FINE, "Attempting to find task definition family or ARN: {0}", template.getTaskDefinitionOverride());
 
                     taskDefinition = service.findTaskDefinition(template.getTaskDefinitionOverride());
                     if (taskDefinition == null) {
@@ -112,7 +112,7 @@ class ECSLauncher extends JNLPLauncher {
                         return;
                     }
 
-                    LOGGER.log(Level.FINE, "Found task definition: {0}", taskDefinition.getTaskDefinitionArn());
+                    LOGGER.log(FINE, "Found task definition: {0}", taskDefinition.getTaskDefinitionArn());
                 }
             } catch (ServerException | ClientException | InvalidParameterException | ClusterNotFoundException ex) {
                 LOGGER.log(Level.WARNING, "Error Creating Task Definition for Label: " + template.getLabel(), ex);
@@ -129,7 +129,7 @@ class ECSLauncher extends JNLPLauncher {
             try {
                 LOGGER.log(Level.INFO, "Running task definition {0} on slave {1}", new Object[]{taskDefinition.getTaskDefinitionArn(), slave.getNodeName()});
 
-                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getDockerRunCommand(), taskDefinition);
+                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getInnerSlave().getDockerRunCommand(), taskDefinition);
                 LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
                         new Object[]{slave.getNodeName(), taskArn});
                 setTaskArn(taskArn);
@@ -161,7 +161,7 @@ class ECSLauncher extends JNLPLauncher {
                             setTaskState(TaskLaunched);
                             break;
                         }
-                        LOGGER.log(INFO, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
+                        LOGGER.log(FINE, "Waiting for Task to be running ({1}/{2}): {0}: Current State: {3}", new Object[]{taskArn, i, j, status});
                         logger.printf("Waiting for Task to be running (%2$s/%3$s): %1$s%n", taskArn, i, j);
                         waitHandle.wait(6000);
                     }
@@ -179,15 +179,15 @@ class ECSLauncher extends JNLPLauncher {
                 try {
                     while (i++ < j && state == TaskLaunched) {
                         if (slave.getECSComputer() == null) {
-                            LOGGER.log(INFO, "Node was deleted, computer is null");
+                            LOGGER.log(WARNING, "Node was deleted, computer is null");
                             setTaskState(Stopping);
                             break;
                         }
-                        if (slave.isOnline()) {
+                        if (computer.isOnline()) {
                             setTaskState(Running);
                             break;
                         }
-                        LOGGER.log(INFO, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{slave.getNodeName(), i, j});
+                        LOGGER.log(FINE, "Waiting for agent to connect ({1}/{2}): {0}", new Object[]{slave.getNodeName(), i, j});
                         logger.printf("Waiting for agent to connect (%2$s/%3$s): %1$s%n", slave.getNodeName(), i, j);
                         waitHandle.wait(1000);
                     }
@@ -217,13 +217,13 @@ class ECSLauncher extends JNLPLauncher {
 
         private void setTaskArn(String taskArn) {
             this.taskArn = taskArn;
-            slave.setTaskArn(taskArn);
+            slave.getInnerSlave().setTaskArn(taskArn);
         }
 
-        private void setTaskState(ECSSlaveImpl.State state) {
+        private void setTaskState(State state) {
             this.state = state;
 
-            slave.setTaskState(state);
+            slave.getInnerSlave().setTaskState(state);
             switch (this.state) {
                 case Initializing:
                     createTaskDefinition();
