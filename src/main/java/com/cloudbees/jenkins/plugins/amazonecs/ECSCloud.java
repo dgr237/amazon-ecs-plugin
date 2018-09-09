@@ -117,7 +117,7 @@ public class ECSCloud extends Cloud {
 
     ECSService getEcsService() {
         if (ecsService == null) {
-            ecsService = new ECSServiceImpl(credentialsId, regionName);
+            ecsService = new ECSService(credentialsId, regionName);
         }
         return ecsService;
     }
@@ -289,9 +289,9 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
-            ECSService ecsService = new ECSServiceImpl(credentialsId, regionName);
+            ECSService ecsClient = new ECSService(credentialsId, regionName);
             try {
-                List<String> allClusterArns=ecsService.getClusterArns();
+                List<String> allClusterArns= ecsClient.getClusterArns();
                 final ListBoxModel options = new ListBoxModel();
                 for (final String arn : allClusterArns) {
                     options.add(arn);

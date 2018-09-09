@@ -42,4 +42,10 @@ public class ECSComputerImpl extends AbstractCloudComputer<ECSSlaveImpl> impleme
     ECSComputerImpl(ECSSlaveImpl slave) {
         super(slave);
     }
+
+
+    @Override
+    public void setAcceptingECSTasks(Boolean value) {
+        setAcceptingTasks(value);
+    }
 }

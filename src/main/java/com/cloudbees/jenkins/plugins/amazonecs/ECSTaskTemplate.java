@@ -97,7 +97,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
      */
     private final int memoryReservation;
 
-    /* a hint to ECSService regarding whether it can ask AWS to make a new container or not */
+    /* a hint to ECSClient regarding whether it can ask AWS to make a new container or not */
     public int getMemoryConstraint() {
         if (this.memoryReservation > 0) {
             return this.memoryReservation;
