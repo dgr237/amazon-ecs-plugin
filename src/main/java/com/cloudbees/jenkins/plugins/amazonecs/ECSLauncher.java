@@ -72,7 +72,7 @@ class ECSLauncher extends JNLPLauncher {
                     throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
                 }
 
-                if (slave.getInnerSlave().getTaskState() != None) {
+                if (slave.getStateManager().getTaskState() != None) {
                     LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
                     return;
                 }
@@ -81,7 +81,7 @@ class ECSLauncher extends JNLPLauncher {
                 if (cloud == null) {
                     throw new IllegalStateException("Cloud has been removed: " + slave.getNodeName());
                 }
-                template = slave.getInnerSlave().getTemplate();
+                template = slave.getStateManager().getTemplate();
                 if (template == null) {
                     throw new IllegalStateException("Template is null for Slave: " + slave.getNodeName());
                 }
@@ -129,7 +129,7 @@ class ECSLauncher extends JNLPLauncher {
             try {
                 LOGGER.log(Level.INFO, "Running task definition {0} on slave {1}", new Object[]{taskDefinition.getTaskDefinitionArn(), slave.getNodeName()});
 
-                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getInnerSlave().getDockerRunCommand(), taskDefinition);
+                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getStateManager().getDockerRunCommand(), taskDefinition);
                 LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
                         new Object[]{slave.getNodeName(), taskArn});
                 setTaskArn(taskArn);
@@ -217,13 +217,13 @@ class ECSLauncher extends JNLPLauncher {
 
         private void setTaskArn(String taskArn) {
             this.taskArn = taskArn;
-            slave.getInnerSlave().setTaskArn(taskArn);
+            slave.getStateManager().setTaskArn(taskArn);
         }
 
         private void setTaskState(State state) {
             this.state = state;
 
-            slave.getInnerSlave().setTaskState(state);
+            slave.getStateManager().setTaskState(state);
             switch (this.state) {
                 case Initializing:
                     createTaskDefinition();

@@ -25,11 +25,10 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
     private int idleMinutes =0;
     private boolean isSingleTask = false;
 
-
-    @DataBoundConstructor
     public ECSRetentionStrategy(boolean isSingleTask, int idleMinutes) {
         this.idleMinutes=idleMinutes;
         this.isSingleTask=isSingleTask;
+        LOGGER.log(Level.INFO,"ECS Retention Strategy configured: Single Task: "+isSingleTask+"; Idle Minutes: "+idleMinutes);
     }
 
     @Override
@@ -58,7 +57,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         {
             LOGGER.log(Level.INFO,"Terminating {0} because it has completed",computer.getName());
             ECSComputer ecsComputer=(ECSComputer)computer;
-            ecsComputer.getNode().getInnerSlave().setTaskState(State.Stopping);
+            ecsComputer.getNode().getStateManager().setTaskState(State.Stopping);
         }
     }
 
@@ -67,7 +66,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         ECSSlaveImpl slave=c.getNode();
         if(slave!=null)
         {
-            State state=slave.getInnerSlave().getTaskState();
+            State state=slave.getStateManager().getTaskState();
             switch (state)
             {
                 case Running:
@@ -75,7 +74,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
                         final long idleMilliseconds = System.currentTimeMillis() - c.getIdleStartMilliseconds();
                         if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
                             LOGGER.log(Level.INFO, "Disconnecting {0}", c.getName());
-                            c.getNode().getInnerSlave().setTaskState(State.Stopping);
+                            c.getNode().getStateManager().setTaskState(State.Stopping);
                         }
                     }
                     break;

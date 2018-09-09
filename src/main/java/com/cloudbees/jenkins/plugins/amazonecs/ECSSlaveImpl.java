@@ -36,11 +36,10 @@ import org.apache.commons.lang.Validate;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.logging.Logger;
 
 /**
- * This slave should only handle a single task and then be shutdown.
+ * This stateManager should only handle a single task and then be shutdown.
  *
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
@@ -48,7 +47,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
-    private ECSSlaveStateManager slave;
+    private ECSSlaveStateManager stateManager;
     private final String cloudName;
     private final ECSTaskTemplate template;
 
@@ -65,7 +64,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 launcher,
                 rs,
                 new ArrayList<>());
-        slave=new ECSSlaveStateManager(this,name,template);
+        stateManager =new ECSSlaveStateManager(this,name,template);
         this.cloudName=cloudName;
         this.template=template;
     }
@@ -90,8 +89,8 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     }
 
-    public ECSSlaveStateManager getInnerSlave() {
-        return slave;
+    public ECSSlaveStateManager getStateManager() {
+        return stateManager;
     }
 
     @Override
@@ -100,7 +99,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     }
 
     @Override
-    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { slave._terminate(listener); }
+    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { stateManager._terminate(listener); }
 
     @Override
     public ECSCloud getCloud() {
@@ -111,8 +110,6 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
             throw new IllegalStateException(getClass().getName() + " can be launched only by instances of " + ECSCloud.class.getName());
         }
     }
-
-    public Collection<String> getDockerRunCommand() { return slave.getDockerRunCommand(); }
 
     public static ECSSlaveImpl.Builder builder() {
         return new ECSSlaveImpl.Builder();
