@@ -4,10 +4,7 @@ import com.amazonaws.services.ecs.model.ListTasksResult;
 import hudson.model.Label;
 import hudson.slaves.NodeProvisioner;
 import jenkins.model.Jenkins;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
 
@@ -37,15 +34,26 @@ public class ECSCloudTest {
         initializingSlavesResolver=mock(ECSInitializingSlavesResolver.class);
         Mockito.when(initializingSlavesResolver.getInitializingECSSlaves(null)).thenReturn(Collections.EMPTY_SET);
         testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"cloudbees/maven-java","FARGATE",null,2048,0,2048,"subnet","secGroup",true,false,null,null,null,null,null,null);
-        testCloud=Mockito.spy(new ECSCloud("ECS Cloud", Arrays.asList(testTemplate),"ecsUser","ecsClusterArn","us-east-1","http://jenkinsUrl",30));
-        Mockito.when(testCloud.getEcsService()).thenReturn(mockService);
+        testCloud= Mockito.spy(new ECSCloud("ECS Cloud","ecsClusterArn","us-east-1").withCredentialsId("ecsUserId").withJenkinsUrl("http://jenkinsUrl:8080").withMaxSlaves(5).withSlaveTimeoutInSeconds(60).withTemplates(testTemplate).withTunnel("myJenkins:50000"));        Mockito.when(testCloud.getEcsService()).thenReturn(mockService);
         Mockito.when(mockClient.listTasks(any())).thenReturn(new ListTasksResult());
     }
 
+    @After
+    public void shutdown()
+    {
+        //TODO How to shutdown
+    }
+
     @Test
-    public void canProvision() {
+    public void canProvisionLabelSupportedByECSShouldReturnTrue() {
         Label label=Jenkins.get().getLabel("maven-java");
         Assert.assertTrue(testCloud.canProvision(label));
+    }
+
+    @Test
+    public void canProvisionLabelNotSupportedByECSShouldReturnFalse() {
+        Label label=Jenkins.get().getLabel("Unknown Label");
+        Assert.assertFalse(testCloud.canProvision(label));
     }
 
     @Test

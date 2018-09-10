@@ -34,6 +34,7 @@ import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 import hudson.AbortException;
 import hudson.ProxyConfiguration;
+import hudson.model.Label;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
@@ -220,8 +221,20 @@ class ECSService {
         }
     }
 
-    public List<String> getRunningTasks(ECSCloud cloud) {
-        ListTasksRequest request=new ListTasksRequest().withCluster(cloud.getCluster()).withDesiredStatus(DesiredStatus.RUNNING);
+    public boolean checkIfAdditionalSlaveCanBeProvisioned(String cluster, ECSTaskTemplate template, int maxSlaves, int timeout) {
+        if (maxSlaves != 0) {
+            List<String> allRunningTasks = getRunningTasks(cluster);
+            LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}", allRunningTasks.size());
+            if (allRunningTasks.size() >= maxSlaves) {
+                LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
+                return false;
+            }
+        }
+        return template.isFargate() || areSufficientClusterResourcesAvailable(timeout, template, cluster);
+    }
+
+    public List<String> getRunningTasks(String cluster) {
+        ListTasksRequest request=new ListTasksRequest().withCluster(cluster).withDesiredStatus(DesiredStatus.RUNNING);
         final List<String> allTaskArns = new ArrayList<>();
         String lastToken = null;
         do {

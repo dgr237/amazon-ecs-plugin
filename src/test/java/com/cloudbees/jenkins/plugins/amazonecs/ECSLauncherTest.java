@@ -17,7 +17,7 @@ import java.util.Arrays;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.State;
 
 public class ECSLauncherTest {
 
@@ -65,21 +65,21 @@ public class ECSLauncherTest {
         ECSCloud testCloud;
         ECSTaskTemplate testTemplate;
         ECSSlave mockSlave;
-        ECSSlaveStateManager stateManager;
+        ECSSlaveHelper helper;
         ECSComputer mockComputer;
         TaskListener mockTaskListener;
         final String taskDefinitionArn="DummyTaskDefinitionArn";
         final TaskDefinition definition=new TaskDefinition().withTaskDefinitionArn(taskDefinitionArn).withContainerDefinitions(new ContainerDefinition().withName("ECSCloud-maven-java").withImage("cloudbees/maven-java").withCpu(2048).withMemory(2048).withEssential(true).withPrivileged(false));
         final String taskArn="DummyTaskArn";
         String nodeName;
-        ECSSlaveStateManager.State testState;
+        ECSSlaveHelper.State testState;
 
         void runCommonSetup()
         {
             ecsService=new ECSService("TestCredentials","us-east-1");
             testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"cloudbees/maven-java","FARGATE",null,2048,0,2048,"subnet","secGroup",true,false,null,null,null,null,null,null);
             nodeName=ECSSlaveImpl.getSlaveName(testTemplate);
-            testCloud= Mockito.spy(new ECSCloud("ECS Cloud", Arrays.asList(testTemplate),"ecsUser","ecsClusterArn","us-east-1","http://jenkinsUrl",30));
+            testCloud= Mockito.spy(new ECSCloud("ECS Cloud","ecsClusterArn","us-east-1").withCredentialsId("ecsUserId").withJenkinsUrl("http://jenkinsUrl:8080").withMaxSlaves(5).withSlaveTimeoutInSeconds(60).withTemplates(testTemplate).withTunnel("myJenkins:50000"));
             Mockito.when(testCloud.getTemplate(org.mockito.Matchers.eq(null))).thenReturn(testTemplate);
             mockECSClient=mock(ECSClient.class);
             mockComputer =mock(ECSComputer.class);
@@ -102,15 +102,15 @@ public class ECSLauncherTest {
 
         private ECSSlave createSlave() {
             ECSSlave slave = mock(ECSSlave.class);
-            stateManager =mock(ECSSlaveStateManager.class);
+            helper =mock(ECSSlaveHelper.class);
 
-            Mockito.when(slave.getStateManager()).thenReturn(stateManager);
+            Mockito.when(slave.getHelper()).thenReturn(helper);
             Mockito.when(slave.getNodeName()).thenReturn(nodeName);
             Mockito.when(slave.getECSComputer()).thenReturn(mockComputer);
             Mockito.when(slave.getCloud()).thenReturn(testCloud);
-            Mockito.when(stateManager.getDockerRunCommand()).thenReturn(Arrays.asList("MyRunCommand"));
-            Mockito.when(stateManager.getTemplate()).thenReturn(testTemplate);
-            Mockito.when(stateManager.getTaskState()).thenAnswer(new Answer<State>() {
+            Mockito.when(helper.getDockerRunCommand()).thenReturn(Arrays.asList("MyRunCommand"));
+            Mockito.when(helper.getTemplate()).thenReturn(testTemplate);
+            Mockito.when(helper.getTaskState()).thenAnswer(new Answer<State>() {
                 public State answer(InvocationOnMock invocation) {
                     return testState;
                 }
@@ -119,12 +119,12 @@ public class ECSLauncherTest {
                 State state = innvocation.getArgumentAt(0, State.class);
                 testState = state;
                 return null;
-            }).when(stateManager).setTaskState(any(State.class));
+            }).when(helper).setTaskState(any(State.class));
             doAnswer((Answer) innvocation -> {
                 String taskArnToCkeck = innvocation.getArgumentAt(0, String.class);
                 Assert.assertEquals(taskArn, taskArnToCkeck);
                 return null;
-            }).when(stateManager).setTaskArn(any(String.class));
+            }).when(helper).setTaskArn(any(String.class));
             return slave;
         }
 
@@ -166,7 +166,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Running, stateManager.getTaskState());
+            Assert.assertEquals(State.Running, helper.getTaskState());
         }
     }
 
@@ -186,7 +186,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Running, stateManager.getTaskState());
+            Assert.assertEquals(State.Running, helper.getTaskState());
         }
     }
 
@@ -203,7 +203,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
+            Assert.assertEquals(State.Stopping, helper.getTaskState());
         }
     }
 
@@ -218,7 +218,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
+            Assert.assertEquals(State.Stopping, helper.getTaskState());
         }
     }
 
@@ -233,7 +233,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
+            Assert.assertEquals(State.Stopping, helper.getTaskState());
         }
     }
 
@@ -248,7 +248,7 @@ public class ECSLauncherTest {
             runCommonSetup();
             setupScenario();
             runTestBase();
-            Assert.assertEquals(State.Stopping, stateManager.getTaskState());
+            Assert.assertEquals(State.Stopping, helper.getTaskState());
         }
     }
 

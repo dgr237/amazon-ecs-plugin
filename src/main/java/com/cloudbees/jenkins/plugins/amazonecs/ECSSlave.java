@@ -5,11 +5,12 @@ import hudson.remoting.VirtualChannel;
 import java.io.IOException;
 
 public interface ECSSlave {
-    ECSSlaveStateManager getStateManager();
+    ECSSlaveHelper getHelper();
     ECSComputer getECSComputer();
     ECSCloud getCloud();
     void terminate() throws InterruptedException,IOException;
     VirtualChannel getChannel();
     String getNodeName();
     void save() throws IOException;
+
 }

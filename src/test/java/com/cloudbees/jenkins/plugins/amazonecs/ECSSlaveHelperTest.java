@@ -8,9 +8,7 @@ import hudson.remoting.VirtualChannel;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
@@ -22,14 +20,14 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-public class ECSSlaveStateManagerTest {
+public class ECSSlaveHelperTest {
 
     private ECSService ecsService;
     private ECSClient mockECSClient;
     private ECSCloud testCloud;
     private ECSComputer mockComputer;
     private ECSSlave mockSlave;
-    private ECSSlaveStateManager stateManager;
+    private ECSSlaveHelper helper;
 
     ECSTaskTemplate testTemplate;
     TaskListener mockTaskListener;
@@ -37,15 +35,14 @@ public class ECSSlaveStateManagerTest {
     final TaskDefinition definition=new TaskDefinition().withTaskDefinitionArn(taskDefinitionArn).withContainerDefinitions(new ContainerDefinition().withName("ECSCloud-maven-java").withImage("cloudbees/maven-java").withCpu(2048).withMemory(2048).withEssential(true).withPrivileged(false));
     final String taskArn="DummyTaskArn";
     String nodeName;
-    ECSSlaveStateManager.State testState;
+    ECSSlaveHelper.State testState;
 
     @Before
     public void setup() throws IOException, InterruptedException {
         ecsService=new ECSService("TestCredentials","us-east-1");
         testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"cloudbees/maven-java","FARGATE",null,2048,0,2048,"subnet","secGroup",true,false,null,null,null,null,null,null);
         nodeName=ECSSlaveImpl.getSlaveName(testTemplate);
-        testCloud= Mockito.spy(new ECSCloud("ECS Cloud", Arrays.asList(testTemplate),"ecsUser","ecsClusterArn","us-east-1","http://jenkinsUrl",30));
-        testCloud.setTunnel("jenkinsUrl:50000");
+        testCloud= Mockito.spy(new ECSCloud("ECS Cloud","ecsClusterArn","us-east-1").withCredentialsId("ecsUserId").withJenkinsUrl("http://jenkinsUrl:8080").withMaxSlaves(5).withSlaveTimeoutInSeconds(60).withTemplates(testTemplate).withTunnel("myJenkins:50000"));        testCloud.setTunnel("jenkinsUrl:50000");
         Mockito.when(testCloud.getTemplate(org.mockito.Matchers.eq(null))).thenReturn(testTemplate);
         mockECSClient=mock(ECSClient.class);
         mockComputer =mock(ECSComputer.class);
@@ -67,13 +64,13 @@ public class ECSSlaveStateManagerTest {
 
     private ECSSlave createSlave() throws IOException, InterruptedException {
         ECSSlave slave = mock(ECSSlave.class);
-        stateManager =new ECSSlaveStateManager(slave,nodeName,testTemplate);
-        Mockito.when(slave.getStateManager()).thenReturn(stateManager);
+        helper =new ECSSlaveHelper(slave,nodeName,testTemplate);
+        Mockito.when(slave.getHelper()).thenReturn(helper);
         Mockito.when(slave.getNodeName()).thenReturn(nodeName);
         Mockito.when(slave.getECSComputer()).thenReturn(mockComputer);
         Mockito.when(slave.getCloud()).thenReturn(testCloud);
         doAnswer((Answer) invocation -> {
-            stateManager._terminate(mockTaskListener);
+            helper._terminate(mockTaskListener);
             return null;
         }).when(slave).terminate();
         return slave;
@@ -82,13 +79,13 @@ public class ECSSlaveStateManagerTest {
     @Test
     public void testDockerRunCommandIsCorrect()
     {
-        Assert.assertArrayEquals(new String[] {"-url","http://jenkinsUrl","-tunnel","jenkinsUrl:50000","TestSecret","TestComputer"},stateManager.getDockerRunCommand().toArray());
+        Assert.assertArrayEquals(new String[] {"-url","http://jenkinsUrl:8080","-tunnel","jenkinsUrl:50000","TestSecret","TestComputer"}, helper.getDockerRunCommand().toArray());
     }
 
     @Test
     public void whenStateIsSetToRunningThenComputerIsSetToAcceptingTasks()
     {
-        stateManager.setTaskState(ECSSlaveStateManager.State.Running);
+        helper.setTaskState(ECSSlaveHelper.State.Running);
         Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(true);
     }
 
@@ -96,12 +93,19 @@ public class ECSSlaveStateManagerTest {
     public void whenStateIsSetToStoppingThenComputerIsSetNotToAcceptingTasks() throws IOException {
         VirtualChannel channel=mock(VirtualChannel.class);
         Mockito.when(mockSlave.getChannel()).thenReturn(channel);
-        stateManager.setTaskArn(taskArn);
-        stateManager.setTaskState(ECSSlaveStateManager.State.Stopping);
+        helper.setTaskArn(taskArn);
+        helper.setTaskState(ECSSlaveHelper.State.Stopping);
 
         Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(false);
         Mockito.verify(channel,Mockito.times(1)).close();
         Mockito.verify(mockECSClient,Mockito.times(1)).stopTask(new StopTaskRequest().withCluster("ecsClusterArn").withTask(taskArn));
-
     }
+
+    @Test
+    public void whenStateIsSetToInitializingThenComputerIsSetNotToAcceptingTasks() {
+        helper.setTaskState(ECSSlaveHelper.State.Initializing);
+
+        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(false);
+    }
+
 }
