@@ -1,11 +1,14 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.amazonaws.services.ecs.model.ContainerDefinition;
+import com.amazonaws.services.ecs.model.StopTaskRequest;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -87,5 +90,18 @@ public class ECSSlaveStateManagerTest {
     {
         stateManager.setTaskState(ECSSlaveStateManager.State.Running);
         Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(true);
+    }
+
+    @Test
+    public void whenStateIsSetToStoppingThenComputerIsSetNotToAcceptingTasks() throws IOException {
+        VirtualChannel channel=mock(VirtualChannel.class);
+        Mockito.when(mockSlave.getChannel()).thenReturn(channel);
+        stateManager.setTaskArn(taskArn);
+        stateManager.setTaskState(ECSSlaveStateManager.State.Stopping);
+
+        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(false);
+        Mockito.verify(channel,Mockito.times(1)).close();
+        Mockito.verify(mockECSClient,Mockito.times(1)).stopTask(new StopTaskRequest().withCluster("ecsClusterArn").withTask(taskArn));
+
     }
 }
