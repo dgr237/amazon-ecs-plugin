@@ -39,7 +39,7 @@ import java.util.ArrayList;
 import java.util.logging.Logger;
 
 /**
- * This stateManager should only handle a single task and then be shutdown.
+ * This helper should only handle a single task and then be shutdown.
  *
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
@@ -47,11 +47,9 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
-    private ECSSlaveStateManager stateManager;
+    private ECSSlaveHelper helper;
     private final String cloudName;
     private final ECSTaskTemplate template;
-
-
 
     public ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                         ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
@@ -64,7 +62,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 launcher,
                 rs,
                 new ArrayList<>());
-        stateManager =new ECSSlaveStateManager(this,name,template);
+        helper =new ECSSlaveHelper(this,name,template);
         this.cloudName=cloudName;
         this.template=template;
     }
@@ -72,10 +70,6 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     private String getCloudName() {
         return cloudName;
-    }
-
-    public ECSTaskTemplate getTemplate() {
-        return template;
     }
 
     @Override
@@ -89,8 +83,8 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     }
 
-    public ECSSlaveStateManager getStateManager() {
-        return stateManager;
+    public ECSSlaveHelper getHelper() {
+        return helper;
     }
 
     @Override
@@ -99,7 +93,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     }
 
     @Override
-    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { stateManager._terminate(listener); }
+    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { helper._terminate(listener); }
 
     @Override
     public ECSCloud getCloud() {

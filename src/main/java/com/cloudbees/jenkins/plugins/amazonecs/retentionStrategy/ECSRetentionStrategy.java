@@ -2,19 +2,19 @@ package com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy;
 
 import com.cloudbees.jenkins.plugins.amazonecs.ECSComputer;
 import com.cloudbees.jenkins.plugins.amazonecs.ECSComputerImpl;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper;
 import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveImpl;
 import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.ExecutorListener;
 import hudson.model.Queue;
 import hudson.slaves.RetentionStrategy;
-import org.kohsuke.stapler.DataBoundConstructor;
 
 import javax.annotation.Nonnull;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.State;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -33,6 +33,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
 
     @Override
     public void taskAccepted(Executor executor, Queue.Task task) {
+
     }
 
     @Override
@@ -57,7 +58,7 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         {
             LOGGER.log(Level.INFO,"Terminating {0} because it has completed",computer.getName());
             ECSComputer ecsComputer=(ECSComputer)computer;
-            ecsComputer.getNode().getStateManager().setTaskState(State.Stopping);
+            ecsComputer.getNode().getHelper().setTaskState(State.Stopping);
         }
     }
 
@@ -66,19 +67,8 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         ECSSlaveImpl slave=c.getNode();
         if(slave!=null)
         {
-            State state=slave.getStateManager().getTaskState();
-            switch (state)
-            {
-                case Running:
-                    if (c!=null && isTerminable() && c.isIdle()) {
-                        final long idleMilliseconds = System.currentTimeMillis() - c.getIdleStartMilliseconds();
-                        if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
-                            LOGGER.log(Level.INFO, "Disconnecting {0}", c.getName());
-                            c.getNode().getStateManager().setTaskState(State.Stopping);
-                        }
-                    }
-                    break;
-            }
+            ECSSlaveHelper helper=slave.getHelper();
+            helper.checkIfShouldTerminate(idleMinutes);
         }
         return 1;
     }
@@ -88,8 +78,5 @@ public class ECSRetentionStrategy extends RetentionStrategy<ECSComputerImpl> imp
         c.connect(false);
     }
 
-    public boolean isTerminable()
-    {
-        return idleMinutes!=0;
-    }
+
 }

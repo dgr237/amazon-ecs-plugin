@@ -61,22 +61,17 @@ public class ECSCloud extends Cloud {
     private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
-    private static final int DEFAULT_MAX_SLAVES = 10;
+    private static final int DEFAULT_MAX_SLAVES = 0;
 
 
     /**
      * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
      */
     @Nonnull
-    private final String credentialsId;
+    private String credentialsId;
     private final String cluster;
     private final List<ECSTaskTemplate> templates;
     private String regionName;
-
-    /**
-     * Tunnel connection through
-     */
-    @CheckForNull
     private String tunnel;
     private String jenkinsUrl;
     private int slaveTimoutInSeconds;
@@ -86,34 +81,15 @@ public class ECSCloud extends Cloud {
     private ECSInitializingSlavesResolver initializingSlavesResolver;
 
     @DataBoundConstructor
-    public ECSCloud(String name, List<ECSTaskTemplate> templates, @Nonnull String credentialsId,
-            String cluster, String regionName, String jenkinsUrl, int slaveTimoutInSeconds) {
+    public ECSCloud(String name, String cluster, String regionName) {
         super(name);
-        this.credentialsId = credentialsId;
         this.cluster = cluster;
-        this.templates = templates;
         this.regionName = regionName;
-        LOGGER.log(Level.INFO, "Create cloud {0} on ECS cluster {1} on the region {2}", new Object[]{name, cluster, regionName});
-
-        if (StringUtils.isNotBlank(jenkinsUrl)) {
-            this.jenkinsUrl = jenkinsUrl;
-        } else {
-            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
-        }
-
-        if (slaveTimoutInSeconds > 0) {
-            this.slaveTimoutInSeconds = slaveTimoutInSeconds;
-        } else {
-            this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
-        }
-
+        this.templates = new ArrayList<>();
         this.maxSlaves = DEFAULT_MAX_SLAVES;
+        this.slaveTimoutInSeconds=DEFAULT_SLAVE_TIMEOUT;
+        LOGGER.log(Level.INFO, "Create cloud {0} on ECS cluster {1} on the region {2}", new Object[]{name, cluster, regionName});
     }
-
-    private boolean waitForSufficientClusterResources(int timeoutSeconds, ECSTaskTemplate template) {
-        return getEcsService().areSufficientClusterResourcesAvailable(timeoutSeconds, template, getCluster());
-    }
-
 
     ECSService getEcsService() {
         if (ecsService == null) {
@@ -129,28 +105,53 @@ public class ECSCloud extends Cloud {
         return initializingSlavesResolver;
     }
 
-    @Nonnull
-    public List<ECSTaskTemplate> getTemplates() {
-        return templates != null ? templates : Collections.emptyList();
-    }
-
-    public String getCredentialsId() {
-        return credentialsId;
-    }
-
     public String getRegionName() {
         return regionName;
-    }
-
-    public void setRegionName(String regionName) {
-        this.regionName = regionName;
     }
 
     public String getCluster() {
         return cluster;
     }
 
+    //region Templates
+    @Nonnull
+    public List<ECSTaskTemplate> getTemplates() {
+        return templates != null ? templates : Collections.emptyList();
+    }
 
+    @DataBoundSetter
+    public void setTemplates(List<ECSTaskTemplate> templates)
+    {
+        this.templates.clear();
+        this.templates.addAll(templates);
+    }
+
+    public ECSCloud withTemplates(ECSTaskTemplate... templates)
+    {
+        setTemplates(Arrays.asList(templates));
+        return this;
+    }
+    //endregion
+
+    //region CredentialsId
+    public String getCredentialsId() {
+        return credentialsId;
+    }
+
+    @DataBoundSetter
+    public void setCredentialsId(String credentialsId)
+    {
+        this.credentialsId=credentialsId;
+    }
+
+    public ECSCloud withCredentialsId(String credentialsId)
+    {
+        setCredentialsId(credentialsId);
+        return this;
+    }
+    //endregion
+
+    //region Tunnel
     public String getTunnel() {
         return tunnel;
     }
@@ -160,14 +161,35 @@ public class ECSCloud extends Cloud {
         this.tunnel = tunnel;
     }
 
+    public ECSCloud withTunnel(String tunnel)
+    {
+        setTunnel(tunnel);
+        return this;
+    }
+    //endregion
+
+    //region SlaveTimeoutInSeconds
     public int getSlaveTimoutInSeconds() {
         return slaveTimoutInSeconds;
     }
 
+    @DataBoundSetter
     public void setSlaveTimoutInSeconds(int slaveTimoutInSeconds) {
-        this.slaveTimoutInSeconds = slaveTimoutInSeconds;
+        if (slaveTimoutInSeconds > 0) {
+            this.slaveTimoutInSeconds = slaveTimoutInSeconds;
+        } else {
+            this.slaveTimoutInSeconds = DEFAULT_SLAVE_TIMEOUT;
+        }
     }
 
+    public ECSCloud withSlaveTimeoutInSeconds(int slaveTimeoutInSeconds)
+    {
+        setSlaveTimoutInSeconds(slaveTimeoutInSeconds);
+        return this;
+    }
+    //endregion
+
+    //region MaxSlaves
     public int getMaxSlaves() {
         return maxSlaves;
     }
@@ -177,19 +199,33 @@ public class ECSCloud extends Cloud {
         this.maxSlaves = maxSlaves;
     }
 
+    public ECSCloud withMaxSlaves(int maxSlaves)
+    {
+        setMaxSlaves(maxSlaves);
+        return this;
+    }
+    //endregion
+
+    // region Jenkins URl
     public String getJenkinsUrl() {
         return jenkinsUrl;
     }
 
+    @DataBoundSetter
     public void setJenkinsUrl(String jenkinsUrl) {
-        this.jenkinsUrl = jenkinsUrl;
+        if (StringUtils.isNotBlank(jenkinsUrl)) {
+            this.jenkinsUrl = jenkinsUrl;
+        } else {
+            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
+        }
     }
 
-
-    @CheckForNull
-    private static AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-        return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.get());
+    public ECSCloud withJenkinsUrl(String jenkinsUrl)
+    {
+        setJenkinsUrl(jenkinsUrl);
+        return this;
     }
+    //endregion
 
     @Override
     public boolean canProvision(Label label) {
@@ -222,13 +258,13 @@ public class ECSCloud extends Cloud {
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= toBeProvisioned; i++) {
-                if (!checkIfAdditionalSlaveCanBeProvisioned(template, label)) {
+                if (!getEcsService().checkIfAdditionalSlaveCanBeProvisioned(cluster, template, maxSlaves, slaveTimoutInSeconds * 1000)) {
                     break;
                 }
-				LOGGER.log(Level.INFO, "Will provision {0}, for label: {1}", new Object[]{template.getDisplayName(), label} );
+                LOGGER.log(Level.INFO, "Will provision {0}, for label: {1}", new Object[]{template.getDisplayName(), label});
 
                 r.add(new NodeProvisioner.PlannedNode(template.getDisplayName(), Computer.threadPoolForRemoting
-                  .submit(new ProvisioningCallback(this, template)), 1));
+                        .submit(new ProvisioningCallback(this, template)), 1));
             }
             return r;
         } catch (Exception e) {
@@ -236,34 +272,6 @@ public class ECSCloud extends Cloud {
             return Collections.emptyList();
         }
     }
-
-    private boolean checkIfAdditionalSlaveCanBeProvisioned(ECSTaskTemplate template, Label label) {
-        if (maxSlaves != 0) {
-            List<String> allRunningTasks = getEcsService().getRunningTasks(this);
-            LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}", allRunningTasks.size());
-            if (allRunningTasks.size() >= maxSlaves) {
-                LOGGER.log(Level.INFO, "ECS Slaves Initializing/ Running: {0}, exceeds max Slaves: {1}", new Object[]{allRunningTasks.size(), maxSlaves});
-                return false;
-            }
-        }
-        return template.isFargate() || waitForSufficientClusterResources(1000 * slaveTimoutInSeconds, template);
-    }
-
-    void deleteTask(String taskArn) {
-         getEcsService().deleteTask(taskArn, cluster);
-     }
-
-
-
-    public static Region getRegion(String regionName) {
-        if (StringUtils.isNotEmpty(regionName)) {
-            return RegionUtils.getRegion(regionName);
-        } else {
-            return Region.getRegion(Regions.US_EAST_1);
-        }
-    }
-
-
 
     @Extension
     public static class DescriptorImpl extends Descriptor<Cloud> {

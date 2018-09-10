@@ -10,8 +10,12 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ECSSlaveStateManager
+import static java.util.concurrent.TimeUnit.MINUTES;
+
+public class ECSSlaveHelper
 {
+
+
     public enum State { None, Initializing, TaskDefinitionCreated, TaskCreated, TaskLaunched, Running, Stopping }
 
     private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
@@ -24,7 +28,7 @@ public class ECSSlaveStateManager
     private String taskDefinitonArn;
     private State taskState;
 
-    public ECSSlaveStateManager(ECSSlave slave, String name, ECSTaskTemplate template) {
+    public ECSSlaveHelper(ECSSlave slave, String name, ECSTaskTemplate template) {
         this.slave=slave;
         this.name=name;
         this.template=template;
@@ -50,11 +54,6 @@ public class ECSSlaveStateManager
 
     public ECSTaskTemplate getTemplate() {
         return template;
-    }
-
-
-    public String getTaskArn() {
-        return taskArn;
     }
 
     public void setTaskArn(String taskArn) {
@@ -117,7 +116,23 @@ public class ECSSlaveStateManager
         }
         if (taskArn != null && cloud != null) {
             LOGGER.log(Level.INFO, "Deleting Task: {0} for agent {1}", new Object[] {taskArn, name});
-            cloud.deleteTask(taskArn);
+            cloud.getEcsService().deleteTask(taskArn, cloud.getCluster());
+        }
+    }
+
+    public void checkIfShouldTerminate(int idleMinutes) {
+        ECSComputer computer=slave.getECSComputer();
+        switch (taskState)
+        {
+            case Running:
+                if (computer!=null && idleMinutes!=0 && computer.isIdle()) {
+                    final long idleMilliseconds = System.currentTimeMillis() - computer.getIdleStartMilliseconds();
+                    if (idleMilliseconds > MINUTES.toMillis(idleMinutes)) {
+                        LOGGER.log(Level.INFO, "Computer is Idle. Disconnecting {0}", computer.getName());
+                        setTaskState(State.Stopping);
+                    }
+                }
+                break;
         }
     }
 }

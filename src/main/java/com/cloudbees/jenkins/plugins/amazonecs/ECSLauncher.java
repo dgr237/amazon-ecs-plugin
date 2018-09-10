@@ -11,9 +11,9 @@ import java.io.PrintStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State;
+import com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.State;
 
-import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.State.*;
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.State.*;
 import static java.util.logging.Level.*;
 
 class ECSLauncher extends JNLPLauncher {
@@ -72,7 +72,7 @@ class ECSLauncher extends JNLPLauncher {
                     throw new IllegalStateException("Node has been removed, cannot launch" + computer.getName());
                 }
 
-                if (slave.getStateManager().getTaskState() != None) {
+                if (slave.getHelper().getTaskState() != None) {
                     LOGGER.log(Level.INFO, "Slave " + slave.getNodeName() + " has already been initialized");
                     return;
                 }
@@ -81,7 +81,7 @@ class ECSLauncher extends JNLPLauncher {
                 if (cloud == null) {
                     throw new IllegalStateException("Cloud has been removed: " + slave.getNodeName());
                 }
-                template = slave.getStateManager().getTemplate();
+                template = slave.getHelper().getTemplate();
                 if (template == null) {
                     throw new IllegalStateException("Template is null for Slave: " + slave.getNodeName());
                 }
@@ -129,7 +129,7 @@ class ECSLauncher extends JNLPLauncher {
             try {
                 LOGGER.log(Level.INFO, "Running task definition {0} on slave {1}", new Object[]{taskDefinition.getTaskDefinitionArn(), slave.getNodeName()});
 
-                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getStateManager().getDockerRunCommand(), taskDefinition);
+                String taskArn = service.runEcsTask(slave, template, cloud.getCluster(), slave.getHelper().getDockerRunCommand(), taskDefinition);
                 LOGGER.log(Level.INFO, "Slave {0} - Slave Task Started : {1}",
                         new Object[]{slave.getNodeName(), taskArn});
                 setTaskArn(taskArn);
@@ -217,13 +217,13 @@ class ECSLauncher extends JNLPLauncher {
 
         private void setTaskArn(String taskArn) {
             this.taskArn = taskArn;
-            slave.getStateManager().setTaskArn(taskArn);
+            slave.getHelper().setTaskArn(taskArn);
         }
 
         private void setTaskState(State state) {
             this.state = state;
 
-            slave.getStateManager().setTaskState(state);
+            slave.getHelper().setTaskState(state);
             switch (this.state) {
                 case Initializing:
                     createTaskDefinition();

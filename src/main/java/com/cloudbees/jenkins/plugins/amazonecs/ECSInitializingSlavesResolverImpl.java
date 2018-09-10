@@ -11,7 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveStateManager.*;
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.*;
 
 
 public class ECSInitializingSlavesResolverImpl implements ECSInitializingSlavesResolver {
@@ -26,7 +26,7 @@ public class ECSInitializingSlavesResolverImpl implements ECSInitializingSlavesR
         if (slave == null)
             return false;
         else
-            return initializingStates.contains(slave.getStateManager().getTaskState());
+            return initializingStates.contains(slave.getHelper().getTaskState());
     }
 
     /**

@@ -8,4 +8,6 @@ public interface ECSComputer {
     String getJnlpMac();
     void setAcceptingECSTasks(Boolean value);
     boolean isOnline();
+    long getIdleStartMilliseconds();
+    boolean isIdle();
 }
