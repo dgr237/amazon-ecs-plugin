@@ -28,7 +28,6 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
 import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 import hudson.Extension;
@@ -46,9 +45,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -100,7 +97,7 @@ public class ECSCloud extends Cloud {
 
     ECSInitializingSlavesResolver initializingSlavesResolver() {
         if (initializingSlavesResolver == null) {
-            initializingSlavesResolver = new ECSInitializingSlavesResolverImpl();
+            initializingSlavesResolver = new ECSInitializingSlavesResolver();
         }
         return initializingSlavesResolver;
     }

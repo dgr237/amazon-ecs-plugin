@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 public class ECSCloudTest {
@@ -25,15 +26,17 @@ public class ECSCloudTest {
     ECSCloud testCloud;
     ECSService mockService;
     ECSClient mockClient;
+    Label label;
     @Before
     public void setup()
     {
+        label=mock(Label.class);
         mockClient=mock(ECSClient.class);
         mockService=new ECSService("Credentials","us-east-1");
         mockService.init(mockClient);
-        initializingSlavesResolver=mock(ECSInitializingSlavesResolver.class);
-        Mockito.when(initializingSlavesResolver.getInitializingECSSlaves(null)).thenReturn(Collections.EMPTY_SET);
-        testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"cloudbees/maven-java","FARGATE",null,2048,0,2048,"subnet","secGroup",true,false,null,null,null,null,null,null);
+        initializingSlavesResolver=Mockito.spy(new ECSInitializingSlavesResolver());
+        doReturn(new Object[] {}).when(initializingSlavesResolver).getNodes(label);
+        testTemplate=new ECSTaskTemplate("maven-java","cloudbees/maven-java","FARGATE",null,2048,0,2048,false,null,null,null,null,null).withLabel("maven-java").withSecurityGroups("secGroup").withSubnets("subnets").withPrivileged(true).withSingleRunTask(true).withIdleTerminationMinutes(1);
         testCloud= Mockito.spy(new ECSCloud("ECS Cloud","ecsClusterArn","us-east-1").withCredentialsId("ecsUserId").withJenkinsUrl("http://jenkinsUrl:8080").withMaxSlaves(5).withSlaveTimeoutInSeconds(60).withTemplates(testTemplate).withTunnel("myJenkins:50000"));        Mockito.when(testCloud.getEcsService()).thenReturn(mockService);
         Mockito.when(mockClient.listTasks(any())).thenReturn(new ListTasksResult());
     }
