@@ -6,8 +6,8 @@ public interface ECSComputer {
     ECSSlave getNode();
     String getName();
     String getJnlpMac();
-    void setAcceptingECSTasks(Boolean value);
     boolean isOnline();
     long getIdleStartMilliseconds();
     boolean isIdle();
+    void setAcceptingTasks(boolean acceptingTasks);
 }

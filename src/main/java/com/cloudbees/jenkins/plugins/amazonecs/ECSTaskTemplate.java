@@ -58,7 +58,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
      * @see Label
      */
     @CheckForNull
-    private final String label;
+    private String label;
 
     /**
      * Task Definition Override to use, instead of a Jenkins-managed Task definition. May be a family name or an ARN.
@@ -190,7 +190,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     /**
      * Indicates whether the container should run in privileged mode
      */
-    private final boolean privileged;
+    private boolean privileged;
 
     /**
      * User for conatiner
@@ -230,19 +230,13 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
 
     @DataBoundConstructor
     public ECSTaskTemplate(@Nonnull String templateName,
-                           @Nullable String label,
-                           @Nullable String taskDefinitionOverride,
                            @Nonnull String image,
                            @Nonnull String launchType,
                            @Nullable String remoteFSRoot,
                            int memory,
                            int memoryReservation,
                            int cpu,
-                           @Nullable String subnets,
-                           @Nullable String securityGroups,
                            boolean assignPublicIp,
-                           boolean privileged,
-                           @Nullable String containerUser,
                            @Nullable List<LogDriverOption> logDriverOptions,
                            @Nullable List<EnvironmentEntry> environments,
                            @Nullable List<ExtraHostEntry> extraHosts,
@@ -250,19 +244,13 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
                            @Nullable List<PortMappingEntry> portMappings) {
         // if the user enters a task definition override, always prefer to use it, rather than the jenkins template.
         this.templateName=templateName;
-        setTaskDefinitionOverride(taskDefinitionOverride);
-        this.label = label;
         this.image = image;
         this.remoteFSRoot = remoteFSRoot;
         this.memory = memory;
         this.memoryReservation = memoryReservation;
         this.cpu = cpu;
         this.launchType = launchType;
-        this.subnets = subnets;
-        this.securityGroups = securityGroups;
         this.assignPublicIp = assignPublicIp;
-        this.privileged = privileged;
-        this.containerUser = StringUtils.trimToNull(containerUser);
         this.logDriverOptions = logDriverOptions;
         this.environments = environments;
         this.extraHosts = extraHosts;
@@ -270,6 +258,12 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         this.portMappings = portMappings;
     }
 
+    //region taskDefinitionOverride
+    public String getTaskDefinitionOverride() {
+        return taskDefinitionOverride;
+    }
+
+    @DataBoundSetter
     public void setTaskDefinitionOverride(String taskDefinitionOverride)
     {
         if (taskDefinitionOverride != null && !taskDefinitionOverride.trim().isEmpty()) {
@@ -287,9 +281,31 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         }
     }
 
+    public ECSTaskTemplate withTaskDefinitionOverride(String taskDefinitionOverride) {
+        setTaskDefinitionOverride(taskDefinitionOverride);
+        return this;
+    }
+    //endregion
+
+    //region Taskrole
+    public String getTaskrole() {
+        return taskrole;
+    }
+
     @DataBoundSetter
     public void setTaskrole(String taskRoleArn) {
         this.taskrole = StringUtils.trimToNull(taskRoleArn);
+    }
+
+    public ECSTaskTemplate withTaskRole(String taskRoleArn) {
+        setTaskrole(taskRoleArn);
+        return this;
+    }
+    //endregion
+
+    //region executionRole
+    public String getExecutionRole() {
+        return executionRole;
     }
 
     @DataBoundSetter
@@ -297,9 +313,32 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         this.executionRole = StringUtils.trimToNull(executionRole);
     }
 
+    public ECSTaskTemplate withExecutionRole(String executionRole) {
+        setExecutionRole(executionRole);
+        return this;
+    }
+    //endregion
+
+    //region entrypoint
+    public String getEntrypoint() {
+        return entrypoint;
+    }
+
     @DataBoundSetter
     public void setEntrypoint(String entrypoint) {
         this.entrypoint = StringUtils.trimToNull(entrypoint);
+    }
+
+    public ECSTaskTemplate withEntrypoint(String entrypoint) {
+        setEntrypoint(entrypoint);
+        return this;
+    }
+
+    //endregion
+
+    //region jvmArgs
+    public String getJvmArgs() {
+        return jvmArgs;
     }
 
     @DataBoundSetter
@@ -307,9 +346,31 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         this.jvmArgs = StringUtils.trimToNull(jvmArgs);
     }
 
+    public ECSTaskTemplate withJvmArgs(String jvmArgs) {
+        setJvmArgs(jvmArgs);
+        return this;
+    }
+    //endregion
+
+    //region containerUser
+    public String getContainerUser() {
+        return containerUser;
+    }
+
     @DataBoundSetter
     public void setContainerUser(String containerUser) {
         this.containerUser = StringUtils.trimToNull(containerUser);
+    }
+
+    public ECSTaskTemplate withContainerUser(String containerUser){
+        setContainerUser(containerUser);
+        return this;
+    }
+    //endregion
+
+    //region logDriver
+    public String getLogDriver() {
+        return logDriver;
     }
 
     @DataBoundSetter
@@ -317,28 +378,122 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         this.logDriver = StringUtils.trimToNull(logDriver);
     }
 
+    public ECSTaskTemplate withLogDriver(String logDriver) {
+        setLogDriver(logDriver);
+        return this;
+    }
+    //endregion
+
+    //region subnets
+    public String getSubnets() {
+        return subnets;
+    }
+
     @DataBoundSetter
     public void setSubnets(String subnets) { this.subnets = StringUtils.trimToNull(subnets); }
 
+    public ECSTaskTemplate withSubnets(String subnets)
+    {
+        setSubnets(subnets);
+        return this;
+    }
+    //endregion
+
+    //region SecurityGroups
+    public String getSecurityGroups() {
+        return securityGroups;
+    }
+
     @DataBoundSetter
     public void setSecurityGroups(String securityGroups) { this.securityGroups = StringUtils.trimToNull(securityGroups); }
+
+    public ECSTaskTemplate withSecurityGroups(String securityGroups) {
+        setSecurityGroups(securityGroups);
+        return this;
+    }
+    //endregion
+
+    //region dnsSearchDomains
+    public String getDnsSearchDomains() {
+        return dnsSearchDomains;
+    }
 
     @DataBoundSetter
     public void setDnsSearchDomains(String dnsSearchDomains) {
         this.dnsSearchDomains = StringUtils.trimToNull(dnsSearchDomains);
     }
 
-    public boolean isFargate() {
-        return StringUtils.trimToNull(this.launchType) != null && launchType.equals(LaunchType.FARGATE.toString());
+    public ECSTaskTemplate withSearchDomains(String dnsSearchDomains) {
+        setDnsSearchDomains(dnsSearchDomains);
+        return this;
+    }
+    //endregion
+
+    //region privileged
+    public boolean getPrivileged() {
+        return privileged;
     }
 
+    @DataBoundSetter
+    public void setPrivileged(boolean privileged) {
+        this.privileged=privileged;
+    }
+
+    public ECSTaskTemplate withPrivileged(boolean privileged) {
+        setPrivileged(privileged);
+        return this;
+    }
+    //endregion
+
+    //region idleTerminationMinutes
+    public int getIdleTerminationMinutes() {
+        return idleTerminationMinutes;
+    }
+
+    @DataBoundSetter
+    public void setIdleTerminationMinutes(int idleTerminationMinutes) {
+        this.idleTerminationMinutes = idleTerminationMinutes;
+    }
+
+    public ECSTaskTemplate withIdleTerminationMinutes(int idleTerminationMinutes) {
+        setIdleTerminationMinutes(idleTerminationMinutes);
+        return this;
+    }
+    //endregion
+
+    //region singleRunTask
+    public boolean isSingleRunTask() {
+        return singleRunTask;
+    }
+
+    @DataBoundSetter
+    public void setSingleRunTask(boolean singleRunTask) {
+        this.singleRunTask = singleRunTask;
+    }
+
+    public ECSTaskTemplate withSingleRunTask(boolean singleRunTask) {
+        setSingleRunTask(singleRunTask);
+        return this;
+    }
+    //endregion
+
+    //region label
     public String getLabel() {
         return label;
     }
 
-    public String getTaskDefinitionOverride() {
-        return taskDefinitionOverride;
+    @DataBoundSetter
+    public void setLabel(String label) {
+        this.label=label;
     }
+
+    public ECSTaskTemplate withLabel(String label) {
+        setLabel(label);
+        return this;
+    }
+    //endregion
+
+    public String getTemplateName() {return templateName; }
 
     public String getImage() {
         return image;
@@ -360,76 +515,23 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         return cpu;
     }
 
-    public String getSubnets() {
-        return subnets;
-    }
-
-    public String getSecurityGroups() {
-        return securityGroups;
-    }
-
     public boolean getAssignPublicIp() {
         return assignPublicIp;
     }
 
-    public String getDnsSearchDomains() {
-        return dnsSearchDomains;
-    }
-
-    public String getEntrypoint() {
-        return entrypoint;
-    }
-
-    public String getTaskrole() {
-        return taskrole;
-    }
-
-    public String getExecutionRole() {
-        return executionRole;
-    }
-
-    public String getJvmArgs() {
-        return jvmArgs;
-    }
-
-    public boolean getPrivileged() {
-        return privileged;
-    }
-
-    public String getContainerUser() {
-        return containerUser;
-    }
 
     public String getLaunchType() {
         if (StringUtils.trimToNull(this.launchType) == null) {
-            return LaunchType.FARGATE.toString();
+            return LaunchType.EC2.toString();
         }
         return launchType;
     }
 
-    public int getIdleTerminationMinutes() {
-        return idleTerminationMinutes;
+    public boolean isFargate() {
+        return StringUtils.trimToNull(this.launchType) != null && launchType.equals(LaunchType.FARGATE.toString());
     }
 
-    @DataBoundSetter
-    public void setIdleTerminationMinutes(int idleTerminationMinutes) {
-        this.idleTerminationMinutes = idleTerminationMinutes;
-    }
 
-    public boolean isSingleRunTask() {
-        return singleRunTask;
-    }
-
-    @DataBoundSetter
-    public void setSingleRunTask(boolean singleRunTask) {
-        this.singleRunTask = singleRunTask;
-    }
-
-    public String getLogDriver() {
-        return logDriver;
-    }
-
-    public String getTemplateName() {return templateName; }
 
     public static class LogDriverOption extends AbstractDescribableImpl<LogDriverOption>{
         public String name, value;

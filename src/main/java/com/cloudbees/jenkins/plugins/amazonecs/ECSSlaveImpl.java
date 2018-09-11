@@ -30,13 +30,10 @@ import hudson.model.Descriptor;
 import hudson.model.TaskListener;
 import hudson.slaves.*;
 import jenkins.model.Jenkins;
-import org.apache.commons.lang.RandomStringUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.logging.Logger;
 
 /**
  * This helper should only handle a single task and then be shutdown.
@@ -44,14 +41,11 @@ import java.util.logging.Logger;
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
 public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
-    private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
-    private static final Logger LOGGER = Logger.getLogger(ECSCloud.class.getName());
-
     private ECSSlaveHelper helper;
     private final String cloudName;
-    private final ECSTaskTemplate template;
+    private JenkinsWrapper jenkins;
 
-    public ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
+    ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                         ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
         super(name,
                 nodeDescription,
@@ -64,9 +58,14 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 new ArrayList<>());
         helper =new ECSSlaveHelper(this,name,template);
         this.cloudName=cloudName;
-        this.template=template;
+        this.jenkins=new JenkinsWrapper();
     }
 
+
+    void init(JenkinsWrapper wrapper)
+    {
+        this.jenkins=wrapper;
+    }
 
     private String getCloudName() {
         return cloudName;
@@ -97,7 +96,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     @Override
     public ECSCloud getCloud() {
-        Cloud cloud = Jenkins.get().getCloud(getCloudName());
+        Cloud cloud = jenkins.getJenkinsInstance().getCloud(getCloudName());
         if (cloud instanceof ECSCloud) {
             return (ECSCloud) cloud;
         } else {
@@ -105,20 +104,8 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
         }
     }
 
-    public static ECSSlaveImpl.Builder builder() {
+    static ECSSlaveImpl.Builder builder() {
         return new ECSSlaveImpl.Builder();
-    }
-
-    static String getSlaveName(ECSTaskTemplate ecsTaskTemplate) {
-        String randString= RandomStringUtils.random(5,"bcdefghijklmnopqrstuvwxyz0123456789");
-        String name=ecsTaskTemplate.getTemplateName();
-        if(StringUtils.isEmpty(name)) {
-            return String.format("%s-%s",DEFAULT_AGENT_PREFIX,randString);
-        }
-
-        name=name.replaceAll("[ _]","-").toLowerCase();
-        name=name.substring(0, Math.min(name.length(),62-randString.length()));
-        return String.format("%s-%s",name,randString);
     }
 
     @Override
@@ -126,24 +113,6 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
         return String.format("ECSSlave name: %s", name);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-
-        ECSSlaveImpl that = (ECSSlaveImpl) o;
-
-        return (cloudName != null ? cloudName.equals(that.cloudName) : that.cloudName == null) && (template != null ? template.equals(that.template) : that.template == null);
-    }
-
-    @Override
-    public int hashCode() {
-        int result = super.hashCode();
-        result = 31 * result + (cloudName != null ? cloudName.hashCode() : 0);
-        result = 31 * result + (template != null ? template.hashCode() : 0);
-        return result;
-    }
 
     public static class Builder {
 
@@ -160,40 +129,40 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
             return this;
         }
 
-        public Builder nodeDescription(String nodeDescription) {
+        Builder nodeDescription(String nodeDescription) {
             this.nodeDescription = nodeDescription;
             return this;
         }
 
-        public Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
+        Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
             this.ecsTaskTemplate = ecsTaskTemplate;
             return this;
         }
 
-        public Builder cloud(ECSCloud ecsCloud) {
+        Builder cloud(ECSCloud ecsCloud) {
             this.cloud = ecsCloud;
             return this;
         }
 
-        public Builder label(String label) {
+        Builder label(String label) {
             this.label = label;
             return this;
         }
 
-        public Builder computerLauncher(ComputerLauncher computerLauncher) {
+        Builder computerLauncher(ComputerLauncher computerLauncher) {
             this.computerLauncher = computerLauncher;
             return this;
         }
 
-        public Builder retentionStrategy(RetentionStrategy retentionStrategy) {
+        Builder retentionStrategy(RetentionStrategy retentionStrategy) {
             this.retentionStrategy = retentionStrategy;
             return this;
         }
 
-        public ECSSlaveImpl build() throws IOException, Descriptor.FormException {
+        ECSSlaveImpl build() throws IOException, Descriptor.FormException {
             Validate.notNull(ecsTaskTemplate);
             Validate.notNull(cloud);
-            return new ECSSlaveImpl(name == null ? getSlaveName(ecsTaskTemplate) : name,
+            return new ECSSlaveImpl(name == null ? ECSSlaveHelper.getSlaveName(ecsTaskTemplate) : name,
                     ecsTaskTemplate,
                     nodeDescription == null ? ecsTaskTemplate.getTemplateName() : nodeDescription,
                     cloud.name,
