@@ -320,8 +320,8 @@ class ECSService {
         boolean hasEnoughResources = false;
         WHILE:
         do {
-            ListContainerInstancesResult listContainerInstances = getAmazonECSClient().listContainerInstances(new ListContainerInstancesRequest().withCluster(clusterArn));
-            DescribeContainerInstancesResult containerInstancesDesc = getAmazonECSClient().describeContainerInstances(new DescribeContainerInstancesRequest().withContainerInstances(listContainerInstances.getContainerInstanceArns()).withCluster(clusterArn));
+            List<String> containerArns = getContainerArns(clusterArn);
+            DescribeContainerInstancesResult containerInstancesDesc = getAmazonECSClient().describeContainerInstances(new DescribeContainerInstancesRequest().withContainerInstances(containerArns).withCluster(clusterArn));
             LOGGER.log(Level.INFO, "Found {0} instances", containerInstancesDesc.getContainerInstances().size());
             for(ContainerInstance instance : containerInstancesDesc.getContainerInstances()) {
                 LOGGER.log(Level.INFO, "Resources found in instance {1}: {0}", new Object[] {instance.getRemainingResources(), instance.getContainerInstanceArn()});
@@ -346,7 +346,7 @@ class ECSService {
                 }
             }
 
-            // sleep 10s and check memory again
+            // sleep 10s and check memory againser
             try {
                 Thread.sleep(10000);
             }
@@ -366,6 +366,19 @@ class ECSService {
         return true;
     }
 
+    public List<String> getContainerArns(String cluster) {
+        ListContainerInstancesRequest request=new ListContainerInstancesRequest().withCluster(cluster);
+        final List<String> allContainerArns = new ArrayList<>();
+        String lastToken = null;
+        do {
+            ListContainerInstancesResult result= getAmazonECSClient().listContainerInstances(request.withNextToken(lastToken));
+            allContainerArns.addAll(result.getContainerInstanceArns());
+            lastToken = result.getNextToken();
+        } while (lastToken != null);
+        Collections.sort(allContainerArns);
+        return allContainerArns;
+    }
+
     public static class ECSClientImpl implements ECSClient
     {
         private final String credentialsId;
@@ -379,7 +392,7 @@ class ECSService {
 
         private synchronized AmazonECS getAmazonECSClient() {
             if(client==null) {
-                ProxyConfiguration proxy = Jenkins.get().proxy;
+                ProxyConfiguration proxy = new JenkinsWrapper().getJenkinsInstance().proxy;
                 ClientConfiguration clientConfiguration = new ClientConfiguration();
                 if (proxy != null) {
                     clientConfiguration.setProxyHost(proxy.name);
@@ -410,7 +423,7 @@ class ECSService {
 
         @CheckForNull
         private AmazonWebServicesCredentials getCredentials(@Nullable String credentialsId) {
-            return AWSCredentialsHelper.getCredentials(credentialsId, Jenkins.get());
+            return AWSCredentialsHelper.getCredentials(credentialsId, new JenkinsWrapper().getJenkinsInstance());
         }
 
         public ListClustersResult listClusters(ListClustersRequest request) {

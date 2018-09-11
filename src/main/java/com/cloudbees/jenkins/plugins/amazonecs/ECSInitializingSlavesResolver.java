@@ -1,6 +1,5 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import hudson.Extension;
 import hudson.model.Label;
 import hudson.model.Node;
 
@@ -10,15 +9,39 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.*;
 
-public interface ECSInitializingSlavesResolver {
+
+public class ECSInitializingSlavesResolver {
+
+    private static final Set<State> initializingStates = new HashSet<>(Arrays.asList(State.Initializing, State.TaskDefinitionCreated, State.TaskLaunched, State.TaskCreated));
+
     /**
      * Returns the agents in provisioning for the current label.
      *
      * @param label The label being checked
      * @return The agents names in provisioning for the current label.
      */
-    Set<String> getInitializingECSSlaves(@CheckForNull Label label);
+    @Nonnull
+    public Set<String> getInitializingECSSlaves(@CheckForNull Label label) {
+        Set<String> result=new HashSet<>();
+        if (label != null) {
+
+            Object[] nodes = getNodes(label);
+            for (Object node : nodes) {
+                if (ECSSlave.class.isInstance(node)) {
+                    ECSSlave slave = (ECSSlave) node;
+                    if (initializingStates.contains(slave.getHelper().getTaskState()))
+                        result.add(slave.getNodeName());
+                }
+            }
+        }
+        return result;
+    }
+
+    Object[] getNodes(Label label)
+    {
+        return label.getNodes().toArray();
+    }
 }

@@ -28,7 +28,6 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
 import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
 import hudson.Extension;
@@ -46,9 +45,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -100,7 +97,7 @@ public class ECSCloud extends Cloud {
 
     ECSInitializingSlavesResolver initializingSlavesResolver() {
         if (initializingSlavesResolver == null) {
-            initializingSlavesResolver = new ECSInitializingSlavesResolverImpl();
+            initializingSlavesResolver = new ECSInitializingSlavesResolver();
         }
         return initializingSlavesResolver;
     }
@@ -277,6 +274,11 @@ public class ECSCloud extends Cloud {
     public static class DescriptorImpl extends Descriptor<Cloud> {
 
         private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
+        private JenkinsWrapper jenkins=new JenkinsWrapper();
+
+        void init(JenkinsWrapper wrapper) {
+            jenkins = wrapper;
+        }
 
         @Override
         @Nonnull
@@ -285,7 +287,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
-            return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.get());
+            return AWSCredentialsHelper.doFillCredentialsIdItems(jenkins.getJenkinsInstance());
         }
 
         public ListBoxModel doFillRegionNameItems() {
@@ -299,7 +301,7 @@ public class ECSCloud extends Cloud {
         public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
             ECSService ecsClient = new ECSService(credentialsId, regionName);
             try {
-                List<String> allClusterArns= ecsClient.getClusterArns();
+                List<String> allClusterArns = ecsClient.getClusterArns();
                 final ListBoxModel options = new ListBoxModel();
                 for (final String arn : allClusterArns) {
                     options.add(arn);

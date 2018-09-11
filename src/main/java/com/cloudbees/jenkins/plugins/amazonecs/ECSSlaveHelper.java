@@ -2,6 +2,7 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
@@ -14,8 +15,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ECSSlaveHelper
 {
-
-
     public enum State { None, Initializing, TaskDefinitionCreated, TaskCreated, TaskLaunched, Running, Stopping }
 
     private static final String DEFAULT_AGENT_PREFIX = "jenkins-agent";
@@ -69,7 +68,7 @@ public class ECSSlaveHelper
                 LOGGER.log(Level.INFO,"Setting Slave "+name+" State to Initializing");
                 ECSComputer computer = slave.getECSComputer();
                 if (computer != null) {
-                    computer.setAcceptingECSTasks(false);
+                    computer.setAcceptingTasks(false);
                 }
                 break;
             }
@@ -78,7 +77,7 @@ public class ECSSlaveHelper
 
                 ECSComputer computer = slave.getECSComputer();
                 if (computer != null) {
-                    computer.setAcceptingECSTasks(true);
+                    computer.setAcceptingTasks(true);
                 }
                 break;
             }
@@ -87,7 +86,7 @@ public class ECSSlaveHelper
 
                 ECSComputer computer = slave.getECSComputer();
                 if (computer != null) {
-                    computer.setAcceptingECSTasks(false);
+                    computer.setAcceptingTasks(false);
                 }
                 try {
                     slave.terminate();
@@ -97,6 +96,18 @@ public class ECSSlaveHelper
                 break;
             }
         }
+    }
+
+    static String getSlaveName(ECSTaskTemplate ecsTaskTemplate) {
+        String randString= RandomStringUtils.random(5,"bcdefghijklmnopqrstuvwxyz0123456789");
+        String name=ecsTaskTemplate.getTemplateName();
+        if(StringUtils.isEmpty(name)) {
+            return String.format("%s-%s",DEFAULT_AGENT_PREFIX,randString);
+        }
+
+        name=name.replaceAll("[ _]","-").toLowerCase();
+        name=name.substring(0, Math.min(name.length(),62-randString.length()));
+        return String.format("%s-%s",name,randString);
     }
 
     protected void _terminate(TaskListener listener) throws IOException, InterruptedException {
