@@ -37,15 +37,7 @@ import java.util.logging.Logger;
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
 public class ECSComputerImpl extends AbstractCloudComputer<ECSSlaveImpl> implements ECSComputer {
-    private static final Logger LOGGER = Logger.getLogger(ECSComputerImpl.class.getName());
-
     ECSComputerImpl(ECSSlaveImpl slave) {
         super(slave);
-    }
-
-
-    @Override
-    public void setAcceptingECSTasks(Boolean value) {
-        setAcceptingTasks(value);
     }
 }

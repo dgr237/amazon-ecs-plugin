@@ -40,8 +40,8 @@ public class ECSSlaveHelperTest {
     @Before
     public void setup() throws IOException, InterruptedException {
         ecsService=new ECSService("TestCredentials","us-east-1");
-        testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"cloudbees/maven-java","FARGATE",null,2048,0,2048,"subnet","secGroup",true,false,null,null,null,null,null,null);
-        nodeName=ECSSlaveImpl.getSlaveName(testTemplate);
+        testTemplate=new ECSTaskTemplate("maven-java","cloudbees/maven-java","FARGATE",null,2048,0,2048,false,null,null,null,null,null).withLabel("maven-java").withSecurityGroups("secGroup").withSubnets("subnets").withPrivileged(true).withSingleRunTask(true).withIdleTerminationMinutes(1);
+        nodeName=ECSSlaveHelper.getSlaveName(testTemplate);
         testCloud= Mockito.spy(new ECSCloud("ECS Cloud","ecsClusterArn","us-east-1").withCredentialsId("ecsUserId").withJenkinsUrl("http://jenkinsUrl:8080").withMaxSlaves(5).withSlaveTimeoutInSeconds(60).withTemplates(testTemplate).withTunnel("myJenkins:50000"));        testCloud.setTunnel("jenkinsUrl:50000");
         Mockito.when(testCloud.getTemplate(org.mockito.Matchers.eq(null))).thenReturn(testTemplate);
         mockECSClient=mock(ECSClient.class);
@@ -86,7 +86,7 @@ public class ECSSlaveHelperTest {
     public void whenStateIsSetToRunningThenComputerIsSetToAcceptingTasks()
     {
         helper.setTaskState(ECSSlaveHelper.State.Running);
-        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(true);
+        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingTasks(true);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class ECSSlaveHelperTest {
         helper.setTaskArn(taskArn);
         helper.setTaskState(ECSSlaveHelper.State.Stopping);
 
-        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(false);
+        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingTasks(false);
         Mockito.verify(channel,Mockito.times(1)).close();
         Mockito.verify(mockECSClient,Mockito.times(1)).stopTask(new StopTaskRequest().withCluster("ecsClusterArn").withTask(taskArn));
     }
@@ -105,7 +105,7 @@ public class ECSSlaveHelperTest {
     public void whenStateIsSetToInitializingThenComputerIsSetNotToAcceptingTasks() {
         helper.setTaskState(ECSSlaveHelper.State.Initializing);
 
-        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingECSTasks(false);
+        Mockito.verify(mockComputer,Mockito.times(1)).setAcceptingTasks(false);
     }
 
 }
