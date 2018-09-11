@@ -274,6 +274,11 @@ public class ECSCloud extends Cloud {
     public static class DescriptorImpl extends Descriptor<Cloud> {
 
         private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
+        private JenkinsWrapper jenkins=new JenkinsWrapper();
+
+        void init(JenkinsWrapper wrapper) {
+            jenkins = wrapper;
+        }
 
         @Override
         @Nonnull
@@ -282,7 +287,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
-            return AWSCredentialsHelper.doFillCredentialsIdItems(Jenkins.get());
+            return AWSCredentialsHelper.doFillCredentialsIdItems(jenkins.getJenkinsInstance());
         }
 
         public ListBoxModel doFillRegionNameItems() {
@@ -296,7 +301,7 @@ public class ECSCloud extends Cloud {
         public ListBoxModel doFillClusterItems(@QueryParameter String credentialsId, @QueryParameter String regionName) {
             ECSService ecsClient = new ECSService(credentialsId, regionName);
             try {
-                List<String> allClusterArns= ecsClient.getClusterArns();
+                List<String> allClusterArns = ecsClient.getClusterArns();
                 final ListBoxModel options = new ListBoxModel();
                 for (final String arn : allClusterArns) {
                     options.add(arn);

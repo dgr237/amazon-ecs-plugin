@@ -43,8 +43,9 @@ import java.util.ArrayList;
 public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     private ECSSlaveHelper helper;
     private final String cloudName;
+    private JenkinsWrapper jenkins;
 
-    public ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
+    ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
                         ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
         super(name,
                 nodeDescription,
@@ -57,8 +58,14 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 new ArrayList<>());
         helper =new ECSSlaveHelper(this,name,template);
         this.cloudName=cloudName;
+        this.jenkins=new JenkinsWrapper();
     }
 
+
+    void init(JenkinsWrapper wrapper)
+    {
+        this.jenkins=wrapper;
+    }
 
     private String getCloudName() {
         return cloudName;
@@ -89,7 +96,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     @Override
     public ECSCloud getCloud() {
-        Cloud cloud = Jenkins.get().getCloud(getCloudName());
+        Cloud cloud = jenkins.getJenkinsInstance().getCloud(getCloudName());
         if (cloud instanceof ECSCloud) {
             return (ECSCloud) cloud;
         } else {
@@ -97,7 +104,7 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
         }
     }
 
-    public static ECSSlaveImpl.Builder builder() {
+    static ECSSlaveImpl.Builder builder() {
         return new ECSSlaveImpl.Builder();
     }
 
@@ -122,37 +129,37 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
             return this;
         }
 
-        public Builder nodeDescription(String nodeDescription) {
+        Builder nodeDescription(String nodeDescription) {
             this.nodeDescription = nodeDescription;
             return this;
         }
 
-        public Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
+        Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
             this.ecsTaskTemplate = ecsTaskTemplate;
             return this;
         }
 
-        public Builder cloud(ECSCloud ecsCloud) {
+        Builder cloud(ECSCloud ecsCloud) {
             this.cloud = ecsCloud;
             return this;
         }
 
-        public Builder label(String label) {
+        Builder label(String label) {
             this.label = label;
             return this;
         }
 
-        public Builder computerLauncher(ComputerLauncher computerLauncher) {
+        Builder computerLauncher(ComputerLauncher computerLauncher) {
             this.computerLauncher = computerLauncher;
             return this;
         }
 
-        public Builder retentionStrategy(RetentionStrategy retentionStrategy) {
+        Builder retentionStrategy(RetentionStrategy retentionStrategy) {
             this.retentionStrategy = retentionStrategy;
             return this;
         }
 
-        public ECSSlaveImpl build() throws IOException, Descriptor.FormException {
+        ECSSlaveImpl build() throws IOException, Descriptor.FormException {
             Validate.notNull(ecsTaskTemplate);
             Validate.notNull(cloud);
             return new ECSSlaveImpl(name == null ? ECSSlaveHelper.getSlaveName(ecsTaskTemplate) : name,
