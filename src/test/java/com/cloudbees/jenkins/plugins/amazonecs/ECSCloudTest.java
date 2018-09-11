@@ -2,11 +2,16 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import hudson.model.Label;
+import hudson.model.labels.LabelAtom;
 import hudson.slaves.NodeProvisioner;
 import jenkins.model.Jenkins;
 import org.junit.*;
+import org.junit.runner.RunWith;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -16,21 +21,26 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest(Label.class)
 public class ECSCloudTest {
+    private ECSInitializingSlavesResolver initializingSlavesResolver;
+    private ECSTaskTemplate testTemplate;
+    private ECSCloud testCloud;
+    private ECSService mockService;
+    private ECSClient mockClient;
+    private Label label;
+    private JenkinsWrapper wrapper;
+    private Jenkins jenkins;
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
-
-    ECSInitializingSlavesResolver initializingSlavesResolver;
-    ECSTaskTemplate testTemplate;
-    ECSCloud testCloud;
-    ECSService mockService;
-    ECSClient mockClient;
-    Label label;
     @Before
     public void setup()
     {
         label=mock(Label.class);
+        jenkins=mock(Jenkins.class);
+        Mockito.when(jenkins.getLabel(any())).thenReturn(label);
+        wrapper=mock(JenkinsWrapper.class);
+        Mockito.when(wrapper.getJenkinsInstance()).thenReturn(jenkins);
         mockClient=mock(ECSClient.class);
         mockService=new ECSService("Credentials","us-east-1");
         mockService.init(mockClient);
@@ -49,19 +59,28 @@ public class ECSCloudTest {
 
     @Test
     public void canProvisionLabelSupportedByECSShouldReturnTrue() {
-        Label label=Jenkins.get().getLabel("maven-java");
+        PowerMockito.mockStatic(Label.class);
+        PowerMockito.when(Label.parse(any())).thenReturn(new TreeSet<>());
+        Mockito.when(label.matches(any(Collection.class))).thenReturn(true);
+        Label label=wrapper.getJenkinsInstance().getLabel("maven-java");
         Assert.assertTrue(testCloud.canProvision(label));
     }
 
     @Test
     public void canProvisionLabelNotSupportedByECSShouldReturnFalse() {
-        Label label=Jenkins.get().getLabel("Unknown Label");
+        PowerMockito.mockStatic(Label.class);
+        PowerMockito.when(Label.parse(any())).thenReturn(new TreeSet<>());
+        Mockito.when(label.matches(any(Collection.class))).thenReturn(false);
+        Label label=wrapper.getJenkinsInstance().getLabel("Unknown Label");
         Assert.assertFalse(testCloud.canProvision(label));
     }
 
     @Test
-    public void Provision() throws ExecutionException, InterruptedException {
-        Label label=Jenkins.get().getLabel("maven-java");
+    public void Provision() {
+        PowerMockito.mockStatic(Label.class);
+        PowerMockito.when(Label.parse(any())).thenReturn(new TreeSet<>());
+        Mockito.when(label.matches(any(Collection.class))).thenReturn(true);
+        Label label=wrapper.getJenkinsInstance().getLabel("maven-java");
         Collection<NodeProvisioner.PlannedNode> result = testCloud.provision(label, 1);
         assertEquals(1, result.size());
         List<NodeProvisioner.PlannedNode> provisioners=new ArrayList<>(result);
