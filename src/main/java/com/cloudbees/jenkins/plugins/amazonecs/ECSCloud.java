@@ -59,8 +59,6 @@ public class ECSCloud extends Cloud {
 
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
     private static final int DEFAULT_MAX_SLAVES = 0;
-
-
     /**
      * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
      */
