@@ -47,8 +47,8 @@
 		<relativePath />
 	</parent>
 
-	<groupId>net.jpmorgan.cib.cibcl</groupId>
-	<artifactId>jules-ecs-plugin</artifactId>
+	<groupId>com.cloudbees.jenkins.plugins</groupId>
+	<artifactId>amazon-ecs</artifactId>
 	<version>1.18-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 	<name>Amazon EC2 Container Service plugin</name>
@@ -63,19 +63,52 @@
 		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
 
+	<developers>
+		<developer>
+			<id>pgarbe</id>
+			<name>Philipp Garbe</name>
+			<email>jenkins@garbe.io</email>
+		</developer>
+		<developer>
+			<id>tekkamanendless</id>
+			<name>Douglas Manley</name>
+			<email>doug.manley@gmail.com</email>
+		</developer>
+		<developer>
+			<id>roehrijn</id>
+			<name>Jan Roehrich</name>
+			<email>jan@roehrich.info</email>
+		</developer>
+	</developers>
+
 	<scm>
-		<connection>scm:git:https://bitbucketdc.jpmchase.net/scm/cibcl/ecs-plugin.git</connection>
-		<developerConnection>scm:git:https://bitbucketdc.jpmchase.net/scm/cibcl/ecs-plugin.git</developerConnection>
+		<connection>scm:git:git://github.com/jenkinsci/amazon-ecs-plugin.git</connection>
+		<developerConnection>scm:git:git@github.com:jenkinsci/amazon-ecs-plugin.git</developerConnection>
+		<url>https://github.com/jenkinsci/amazon-ecs-plugin</url>
+		<tag>amazon-ecs-1.12</tag>
 	</scm>
+
+	<repositories>
+		<repository>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
+		</pluginRepository>
+	</pluginRepositories>
 
 	<distributionManagement>
 		<repository>
 			<id>repo.jenkins-ci.org</id>
-			<url>https://repo.jpmchase.net/maven/content/repositories/CIBCL-SNAPSHOT</url>
+			<url>http://repo.jenkins-ci.org/releases/</url>
 		</repository>
 		<snapshotRepository>
 			<id>repo.jenkins-ci.org</id>
-			<url>https://repo.jpmchase.net/maven/content/repositories/CIBCL</url>
+			<url>http://repo.jenkins-ci.org/snapshots</url>
 		</snapshotRepository>
 	</distributionManagement>
 
