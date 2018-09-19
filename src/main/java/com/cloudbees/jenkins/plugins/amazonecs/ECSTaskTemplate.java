@@ -1155,7 +1155,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
                     return FormValidation.error("Up to 127 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed");
                 }
             } else {
-                if (!taskArn.matches("arn:aws:ecs:[a-z0-9|-]+:[0-9]+:task\\/[a-z0-9|-]*")) {
+                if (!taskArn.matches("arn:aws:ecs:[a-z0-9|-]+:[0-9]+:task-definition\\/.*:[0-9]*")) {
                     return FormValidation.error("Task ARN is not valid");
                 }
             }

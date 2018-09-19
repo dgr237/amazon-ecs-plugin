@@ -185,7 +185,7 @@ public class ECSTaskTemplateTest {
     public void whenTaskDefinitionArnIsValidFormatThenFormValidationIsOk()
     {
         ECSTaskTemplate.DescriptorImpl descriptor=new ECSTaskTemplate.DescriptorImpl();
-        FormValidation validation=descriptor.doCheckTaskDefinitionOverride("arn:aws:ecs:us-east-1:123456789012:task/1abf0f6d-a411-4033-b8eb-a4eed3ad252a",null);
+        FormValidation validation=descriptor.doCheckTaskDefinitionOverride("arn:aws:ecs:us-east-1:123456789012:task-definition/hello_world:8",null);
         Assert.assertEquals(FormValidation.Kind.OK,validation.kind);
     }
 
