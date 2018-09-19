@@ -27,8 +27,8 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
-import com.cloudbees.jenkins.plugins.amazonecs.credentials.ECSCredentialsHelper;
-import com.cloudbees.jenkins.plugins.amazonecs.credentials.ECSCredentials;
+import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
+import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsImpl;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -58,7 +58,7 @@ public class ECSCloud extends Cloud {
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
     private static final int DEFAULT_MAX_SLAVES = 0;
     /**
-     * Id of the {@link ECSCredentials} used to connect to Amazon ECS
+     * Id of the {@link AWSCredentialsImpl} used to connect to Amazon ECS
      */
     private String credentialsId;
     private final String cluster;
@@ -274,7 +274,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
-            return ECSCredentialsHelper.doFillCredentialsIdItems(JenkinsWrapper.getInstance());
+            return AWSCredentialsHelper.doFillCredentialsIdItems(JenkinsWrapper.getInstance());
         }
 
         public ListBoxModel doFillRegionNameItems() {

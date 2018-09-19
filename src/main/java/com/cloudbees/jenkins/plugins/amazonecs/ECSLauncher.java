@@ -22,7 +22,7 @@ class ECSLauncher extends JNLPLauncher {
     private static final Logger LOGGER = Logger.getLogger(ECSLauncher.class.getName());
 
     ECSLauncher(boolean enableWorkDir) {
-        super(enableWorkDir);
+        super();
     }
 
     @Override

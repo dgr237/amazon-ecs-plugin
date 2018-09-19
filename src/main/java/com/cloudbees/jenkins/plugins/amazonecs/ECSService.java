@@ -31,7 +31,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.AmazonECSClient;
 import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.amazonaws.services.ecs.model.*;
-import com.cloudbees.jenkins.plugins.amazonecs.credentials.ECSCredentialsHelper;
+import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
 import hudson.AbortException;
 import org.apache.commons.lang.StringUtils;
 
@@ -346,7 +346,7 @@ public class ECSService {
         @CheckForNull
         private AWSCredentialsProvider getCredentials(@Nullable String credentialsId) {
             if(provider==null) {
-                return ECSCredentialsHelper.getCredentials(credentialsId, JenkinsWrapper.getInstance());
+                return AWSCredentialsHelper.getCredentials(credentialsId, JenkinsWrapper.getInstance());
             }
             return provider;
         }
