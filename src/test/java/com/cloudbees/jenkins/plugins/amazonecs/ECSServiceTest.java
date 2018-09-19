@@ -72,14 +72,11 @@ public class ECSServiceTest {
                 new ContainerInstance().withContainerInstanceArn("Container2").withRemainingResources(new Resource().withName("MEMORY").withIntegerValue(512), new Resource().withName("CPU").withIntegerValue(512)),
                 new ContainerInstance().withContainerInstanceArn("Container3").withRemainingResources(new Resource().withName("MEMORY").withIntegerValue(4096), new Resource().withName("CPU").withIntegerValue(4096)))).when(mockClient).describeContainerInstances(any());
 
-        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
-                .withTemplateName("maven-java")
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"FARGATE")
                 .withImage("cloudbees/maven-java")
-                .withLaunchType("FARGATE")
                 .withMemory(2048)
                 .withCpu(2048)
                 .withAssignPublicIp(true)
-                .withLabel("maven-java")
                 .withSecurityGroups("secGroup")
                 .withSubnets("subnets")
                 .withPrivileged(true)

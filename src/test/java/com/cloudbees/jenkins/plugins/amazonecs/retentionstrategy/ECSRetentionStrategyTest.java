@@ -28,14 +28,11 @@ public class ECSRetentionStrategyTest {
         computer = mock(ECSComputerImpl.class);
         ECSSlave slave = mock(ECSSlave.class);
 
-        ECSTaskTemplate testTemplate = new ECSTaskTemplate()
-                .withTemplateName("maven-java")
+        ECSTaskTemplate testTemplate = new ECSTaskTemplate("maven-java","maven-java",null,"FARGATE")
                 .withImage("cloudbees/maven-java")
-                .withLaunchType("FARGATE")
                 .withMemory(2048)
                 .withCpu(2048)
                 .withAssignPublicIp(true)
-                .withLabel("maven-java")
                 .withSecurityGroups("secGroup")
                 .withSubnets("subnets")
                 .withPrivileged(true)

@@ -41,14 +41,11 @@ public class ECSSlaveHelperTest {
     @Before
     public void setup() throws IOException, InterruptedException {
         ECSService ecsService=new ECSService("TestCredentials","us-east-1");
-        testTemplate=new ECSTaskTemplate()
-                .withTemplateName("maven-java")
+        testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"FARGATE")
                 .withImage("cloudbees/maven-java")
-                .withLaunchType("FARGATE")
                 .withMemory(2048)
                 .withCpu(2048)
                 .withAssignPublicIp(true)
-                .withLabel("maven-java")
                 .withSecurityGroups("secGroup")
                 .withSubnets("subnets")
                 .withPrivileged(true)

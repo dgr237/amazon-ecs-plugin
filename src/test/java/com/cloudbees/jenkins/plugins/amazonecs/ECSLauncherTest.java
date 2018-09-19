@@ -81,15 +81,17 @@ public class ECSLauncherTest {
 
         void runCommonSetup()
         {
+            runCommonSetup(null);
+        }
+
+        void runCommonSetup(String taskDefinitionArn)
+        {
             ecsService=new ECSService("TestCredentials","us-east-1");
-            testTemplate=new ECSTaskTemplate()
-                    .withTemplateName("maven-java")
+            testTemplate=new ECSTaskTemplate("maven-java","maven-java",taskDefinitionArn,"FARGATE")
                     .withImage("cloudbees/maven-java")
-                    .withLaunchType("FARGATE")
                     .withMemory(2048)
                     .withCpu(2048)
                     .withAssignPublicIp(true)
-                    .withLabel("maven-java")
                     .withSecurityGroups("secGroup")
                     .withSubnets("subnets")
                     .withPrivileged(false)
@@ -182,8 +184,6 @@ public class ECSLauncherTest {
 
     class ECSSlaveCreatedSuccessfullyIfValidTaskDefinitionArnSuppliedScenario extends ECSLauncherTestBase {
         private void setupScenario()  {
-            testTemplate.setTaskDefinitionOverride(taskDefinitionArn);
-
             Mockito.when(mockComputer.isOnline()).thenReturn(true);
             Mockito.when(mockECSClient.describeTaskDefinition(any())).thenReturn(new DescribeTaskDefinitionResult().withTaskDefinition(definition));
             Mockito.verify(mockECSClient,Mockito.never()).registerTaskDefinition(any());
@@ -193,7 +193,7 @@ public class ECSLauncherTest {
 
         void runTest()
         {
-            runCommonSetup();
+            runCommonSetup(taskDefinitionArn);
             setupScenario();
             runTestBase();
             Assert.assertEquals(RUNNING, helper.getTaskState());
@@ -249,13 +249,12 @@ public class ECSLauncherTest {
 
     class ECSSlaveIsStoppedWhenTemplateNotFoundForTaskDefinitionARNScenario extends ECSLauncherTestBase {
         private void setupScenario() {
-            testTemplate.setTaskDefinitionOverride(taskDefinitionArn);
             Mockito.when(mockECSClient.describeTaskDefinition(any())).thenThrow(new ClientException("ARN not found"));
         }
 
         void runTest()
         {
-            runCommonSetup();
+            runCommonSetup(taskDefinitionArn);
             setupScenario();
             runTestBase();
             Assert.assertEquals(STOPPING, helper.getTaskState());

@@ -55,20 +55,20 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     /**
      * Template Name
      */
-    private String templateName;
+    private final String templateName;
     /**
      * White-space separated list of {@link hudson.model.Node} labels.
      *
      * @see Label
      */
     @CheckForNull
-    private String label;
+    private final String label;
 
     /**
      * Task Definition Override to use, instead of a Jenkins-managed Task definition. May be a family name or an ARN.
      */
     @CheckForNull
-    private String taskDefinitionOverride;
+    private final String taskDefinitionOverride;
 
     /**
      * Docker image
@@ -183,7 +183,7 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
      * Task launch type
      */
     @Nonnull
-    private String launchType;
+    private final String launchType;
 
     /**
      * Indicates whether the container should run in privileged mode
@@ -223,8 +223,23 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     private final List<LogDriverOption> logDriverOptions;
 
     @DataBoundConstructor
-    public ECSTaskTemplate() {
-        this.launchType=LaunchType.EC2.toString();
+    public ECSTaskTemplate(String label, String templateName, String taskDefinitionOverride, String launchType) {
+        this.label=label;
+        this.launchType=StringUtils.defaultIfBlank(launchType,LaunchType.EC2.toString());
+        String taskDefOverride = StringUtils.trimToNull(taskDefinitionOverride);
+        if (!StringUtils.isBlank(taskDefOverride)) {
+            this.taskDefinitionOverride = taskDefOverride;
+            // Always set the template name to the empty string if we are using a task definition override,
+            // since we don't want Jenkins to touch our definitions.
+            this.templateName = "";
+        } else {
+            // If the template name is empty we will add a default name and a
+            // random element that will help to find it later when we want to delete it.
+            this.templateName = templateName.isEmpty() ?
+                    "jenkinsTask-" + UUID.randomUUID().toString() : templateName;
+            // Make sure we don't have both a template name and a task definition override.
+            this.taskDefinitionOverride = null;
+        }
         // if the user enters a task definition override, always prefer to use it, rather than the jenkins template.
         this.logDriverOptions = new ArrayList<>();
         this.environments = new ArrayList<>();
@@ -237,29 +252,6 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     //region taskDefinitionOverride
     public String getTaskDefinitionOverride() {
         return taskDefinitionOverride;
-    }
-
-    @DataBoundSetter
-    public void setTaskDefinitionOverride(String taskDefinitionOverride) {
-        String taskDefOverride = StringUtils.trimToNull(taskDefinitionOverride);
-        if (!StringUtils.isBlank(taskDefOverride)) {
-            this.taskDefinitionOverride = taskDefOverride;
-            // Always set the template name to the empty string if we are using a task definition override,
-            // since we don't want Jenkins to touch our definitions.
-            this.templateName = "";
-        } else {
-            // If the template name is empty we will add a default name and a
-            // random element that will help to find it later when we want to delete it.
-            this.templateName = this.templateName.isEmpty() ?
-                    "jenkinsTask-" + UUID.randomUUID().toString() : this.templateName;
-            // Make sure we don't have both a template name and a task definition override.
-            this.taskDefinitionOverride = null;
-        }
-    }
-
-    public ECSTaskTemplate withTaskDefinitionOverride(String taskDefinitionOverride) {
-        setTaskDefinitionOverride(taskDefinitionOverride);
-        return this;
     }
     //endregion
 
@@ -461,31 +453,11 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
         return label;
     }
 
-    @DataBoundSetter
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public ECSTaskTemplate withLabel(String label) {
-        setLabel(label);
-        return this;
-    }
     //endregion
 
     //region Template Name
     public String getTemplateName() {
         return templateName;
-    }
-
-    @DataBoundSetter
-    public void setTemplateName(String templateName)
-    {
-        this.templateName=templateName;
-    }
-
-    public ECSTaskTemplate withTemplateName(String templateName) {
-        setTemplateName(templateName);
-        return this;
     }
     //endregion
 
@@ -594,15 +566,6 @@ public class ECSTaskTemplate extends AbstractDescribableImpl<ECSTaskTemplate> {
     //region launchType
     public String getLaunchType() {
         return StringUtils.defaultIfBlank(StringUtils.trimToNull(this.launchType), LaunchType.EC2.toString());
-    }
-
-    public void setLaunchType(String launchType) {
-        this.launchType = StringUtils.defaultIfBlank(launchType, LaunchType.EC2.toString());
-    }
-
-    public ECSTaskTemplate withLaunchType(String launchType) {
-        setLaunchType(launchType);
-        return this;
     }
 
     public boolean isFargate() {

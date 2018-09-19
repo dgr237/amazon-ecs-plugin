@@ -17,26 +17,21 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenTaskDefinitionOverrideIsSetThenTemplateNameIsOverridden() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withTemplateName("TestTemplate");
-        assertEquals("TestTemplate", template.getTemplateName());
-        template.setTaskDefinitionOverride("Override");
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate","Override","FARGATE");
         assertEquals("Override", template.getTaskDefinitionOverride());
         assertEquals("", template.getTemplateName());
     }
 
     @Test
     public void whenTaskDefinitionOverrideIsSetToNullThenTemplateNameIsDefaulted() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withTaskDefinitionOverride("Override");
-        assertEquals("Override", template.getTaskDefinitionOverride());
-        assertEquals("", template.getTemplateName());
-        template.setTaskDefinitionOverride("");
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate","","FARGATE");
         assertNull(template.getTaskDefinitionOverride());
-        assertNotEquals("", template.getTemplateName());
+        assertEquals("TestTemplate", template.getTemplateName());
     }
 
     @Test
     public void whenSettingLogDriverOptionsWithEmptyListThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withLogDriverOptions(Arrays.asList(new ECSTaskTemplate.LogDriverOption("Key1", "Value1"), new ECSTaskTemplate.LogDriverOption("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withLogDriverOptions(Arrays.asList(new ECSTaskTemplate.LogDriverOption("Key1", "Value1"), new ECSTaskTemplate.LogDriverOption("Key2", "Value2")));
         Assert.assertEquals(2, template.getLogDriverOptions().size());
         template.setLogDriverOptions(Collections.emptyList());
         Assert.assertEquals(0, template.getLogDriverOptions().size());
@@ -44,7 +39,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingLogDriverOptionsWithNullThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withLogDriverOptions(Arrays.asList(new ECSTaskTemplate.LogDriverOption("Key1", "Value1"), new ECSTaskTemplate.LogDriverOption("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withLogDriverOptions(Arrays.asList(new ECSTaskTemplate.LogDriverOption("Key1", "Value1"), new ECSTaskTemplate.LogDriverOption("Key2", "Value2")));
         Assert.assertEquals(2, template.getLogDriverOptions().size());
         template.setLogDriverOptions(null);
         Assert.assertEquals(0, template.getLogDriverOptions().size());
@@ -52,7 +47,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingEnvironmentsWithEmptyListThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withEnvironments(Arrays.asList(new ECSTaskTemplate.EnvironmentEntry("Key1", "Value1"), new ECSTaskTemplate.EnvironmentEntry("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withEnvironments(Arrays.asList(new ECSTaskTemplate.EnvironmentEntry("Key1", "Value1"), new ECSTaskTemplate.EnvironmentEntry("Key2", "Value2")));
         Assert.assertEquals(2, template.getEnvironments().size());
         template.setEnvironments(Collections.emptyList());
         Assert.assertEquals(0, template.getEnvironments().size());
@@ -60,7 +55,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingEnvironmentsWithNullThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withEnvironments(Arrays.asList(new ECSTaskTemplate.EnvironmentEntry("Key1", "Value1"), new ECSTaskTemplate.EnvironmentEntry("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withEnvironments(Arrays.asList(new ECSTaskTemplate.EnvironmentEntry("Key1", "Value1"), new ECSTaskTemplate.EnvironmentEntry("Key2", "Value2")));
         Assert.assertEquals(2, template.getEnvironments().size());
         template.setEnvironments(null);
         Assert.assertEquals(0, template.getEnvironments().size());
@@ -68,7 +63,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingExtraHostsWithEmptyListThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withExtraHosts(Arrays.asList(new ECSTaskTemplate.ExtraHostEntry("Key1", "Value1"), new ECSTaskTemplate.ExtraHostEntry("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withExtraHosts(Arrays.asList(new ECSTaskTemplate.ExtraHostEntry("Key1", "Value1"), new ECSTaskTemplate.ExtraHostEntry("Key2", "Value2")));
         Assert.assertEquals(2, template.getExtraHosts().size());
         template.setExtraHosts(Collections.emptyList());
         Assert.assertEquals(0, template.getExtraHosts().size());
@@ -76,7 +71,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingExtraHostsWithNullThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withExtraHosts(Arrays.asList(new ECSTaskTemplate.ExtraHostEntry("Key1", "Value1"), new ECSTaskTemplate.ExtraHostEntry("Key2", "Value2")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withExtraHosts(Arrays.asList(new ECSTaskTemplate.ExtraHostEntry("Key1", "Value1"), new ECSTaskTemplate.ExtraHostEntry("Key2", "Value2")));
         Assert.assertEquals(2, template.getExtraHosts().size());
         Assert.assertEquals(2, template.getExtraHostEntries().size());
         template.setExtraHosts(null);
@@ -85,7 +80,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingMountPointsWithEmptyListThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withMountPoints(Arrays.asList(new ECSTaskTemplate.MountPointEntry("Name1", "SourcePath1", "ContainerPath1", false), new ECSTaskTemplate.MountPointEntry("Name2", "SourcePath2", "ContainerPath2", false)));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withMountPoints(Arrays.asList(new ECSTaskTemplate.MountPointEntry("Name1", "SourcePath1", "ContainerPath1", false), new ECSTaskTemplate.MountPointEntry("Name2", "SourcePath2", "ContainerPath2", false)));
         Assert.assertEquals(2, template.getMountPoints().size());
         template.setMountPoints(Collections.emptyList());
         Assert.assertEquals(0, template.getMountPoints().size());
@@ -93,7 +88,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingMountPointsWithNullThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withMountPoints(Arrays.asList(new ECSTaskTemplate.MountPointEntry("Name1", "SourcePath1", "ContainerPath1", false), new ECSTaskTemplate.MountPointEntry("Name2", "SourcePath2", "ContainerPath2", false)));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withMountPoints(Arrays.asList(new ECSTaskTemplate.MountPointEntry("Name1", "SourcePath1", "ContainerPath1", false), new ECSTaskTemplate.MountPointEntry("Name2", "SourcePath2", "ContainerPath2", false)));
         Assert.assertEquals(2, template.getMountPoints().size());
         template.setMountPoints(null);
         Assert.assertEquals(0, template.getMountPoints().size());
@@ -101,7 +96,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingPortMappingWithEmptyCollectionThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withPortMappings(Arrays.asList(new ECSTaskTemplate.PortMappingEntry(1000, 1000, "tcp"), new ECSTaskTemplate.PortMappingEntry(1001, 1001, "tcp")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withPortMappings(Arrays.asList(new ECSTaskTemplate.PortMappingEntry(1000, 1000, "tcp"), new ECSTaskTemplate.PortMappingEntry(1001, 1001, "tcp")));
         Assert.assertEquals(2, template.getPortMappings().size());
         Assert.assertEquals(2, template.getPortMappingEntries().size());
         template.setPortMappings(Collections.emptyList());
@@ -110,7 +105,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void whenSettingPortMappingWithNullThenTheTemplateIsCleared() {
-        ECSTaskTemplate template = new ECSTaskTemplate().withPortMappings(Arrays.asList(new ECSTaskTemplate.PortMappingEntry(1000, 1000, "tcp"), new ECSTaskTemplate.PortMappingEntry(1001, 1001, "tcp")));
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE").withPortMappings(Arrays.asList(new ECSTaskTemplate.PortMappingEntry(1000, 1000, "tcp"), new ECSTaskTemplate.PortMappingEntry(1001, 1001, "tcp")));
         Assert.assertEquals(2, template.getPortMappings().size());
         Assert.assertEquals(2, template.getPortMappingEntries().size());
         template.setPortMappings(null);
@@ -119,7 +114,7 @@ public class ECSTaskTemplateTest {
 
     @Test
     public void containerDefinitionIsBuiltCorrectly() {
-        ECSTaskTemplate template = new ECSTaskTemplate()
+        ECSTaskTemplate template = new ECSTaskTemplate("Label","TestTemplate",null,"FARGATE")
                 .withImage("TestImage")
                 .withEnvironments(Arrays.asList(new ECSTaskTemplate.EnvironmentEntry("Key1", "Value1"), new ECSTaskTemplate.EnvironmentEntry("Key2", "Value2")))
                 .withExtraHosts(Arrays.asList(new ECSTaskTemplate.ExtraHostEntry("Key1", "Value1"), new ECSTaskTemplate.ExtraHostEntry("Key2", "Value2")))

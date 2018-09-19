@@ -17,14 +17,11 @@ public class ECSInitializingSlavesResolverTest {
 
         ECSSlave slave=mock(ECSSlave.class);
         Mockito.when(slave.getNodeName()).thenReturn("InitializingNode");
-        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
-                .withTemplateName("maven-java")
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"FARGATE")
                 .withImage("cloudbees/maven-java")
-                .withLaunchType("FARGATE")
                 .withMemory(2048)
                 .withCpu(2048)
                 .withAssignPublicIp(true)
-                .withLabel("maven-java")
                 .withSecurityGroups("secGroup")
                 .withSubnets("subnets")
                 .withPrivileged(true)
@@ -48,14 +45,11 @@ public class ECSInitializingSlavesResolverTest {
 
         ECSSlave slave=mock(ECSSlave.class);
         Mockito.when(slave.getNodeName()).thenReturn("InitializingNode");
-        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
-                .withTemplateName("maven-java")
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate("maven-java","maven-java",null,"FARGATE")
                 .withImage("cloudbees/maven-java")
-                .withLaunchType("FARGATE")
                 .withMemory(2048)
                 .withCpu(2048)
                 .withAssignPublicIp(true)
-                .withLabel("maven-java")
                 .withSecurityGroups("secGroup")
                 .withSubnets("subnets")
                 .withPrivileged(true)
