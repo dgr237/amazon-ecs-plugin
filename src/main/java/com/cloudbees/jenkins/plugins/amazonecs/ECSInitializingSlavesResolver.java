@@ -1,21 +1,19 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
 import hudson.model.Label;
-import hudson.model.Node;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
+
 import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.*;
 
 
-public class ECSInitializingSlavesResolver {
+class ECSInitializingSlavesResolver {
 
-    private static final Set<State> initializingStates = new HashSet<>(Arrays.asList(State.Initializing, State.TaskDefinitionCreated, State.TaskLaunched, State.TaskCreated));
+    private static final Set<State> initializingStates = new HashSet<>(Arrays.asList(State.INITIALIZING, State.TASK_DEFINITION_CREATED, State.TASK_LAUNCHED, State.TASK_CREATED));
 
     /**
      * Returns the agents in provisioning for the current label.
@@ -24,7 +22,7 @@ public class ECSInitializingSlavesResolver {
      * @return The agents names in provisioning for the current label.
      */
     @Nonnull
-    public Set<String> getInitializingECSSlaves(@CheckForNull Label label) {
+    Set<String> getInitializingECSSlaves(@CheckForNull Label label) {
         Set<String> result=new HashSet<>();
         if (label != null) {
 
@@ -32,8 +30,9 @@ public class ECSInitializingSlavesResolver {
             for (Object node : nodes) {
                 if (ECSSlave.class.isInstance(node)) {
                     ECSSlave slave = (ECSSlave) node;
-                    if (initializingStates.contains(slave.getHelper().getTaskState()))
+                    if (initializingStates.contains(slave.getHelper().getTaskState())) {
                         result.add(slave.getNodeName());
+                    }
                 }
             }
         }

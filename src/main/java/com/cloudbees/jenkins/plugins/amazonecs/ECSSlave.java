@@ -8,7 +8,7 @@ public interface ECSSlave {
     ECSSlaveHelper getHelper();
     ECSComputer getECSComputer();
     ECSCloud getCloud();
-    void terminate() throws InterruptedException,IOException;
+    void terminate() throws IOException, InterruptedException;
     VirtualChannel getChannel();
     String getNodeName();
     void save() throws IOException;

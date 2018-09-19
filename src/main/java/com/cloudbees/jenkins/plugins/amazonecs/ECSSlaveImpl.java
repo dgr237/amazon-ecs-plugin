@@ -25,28 +25,29 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.cloudbees.jenkins.plugins.amazonecs.retentionStrategy.ECSRetentionStrategy;
+import com.cloudbees.jenkins.plugins.amazonecs.retentionstrategy.ECSRetentionStrategy;
 import hudson.model.Descriptor;
 import hudson.model.TaskListener;
 import hudson.slaves.*;
-import jenkins.model.Jenkins;
 import org.apache.commons.lang.Validate;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 /**
  * This helper should only handle a single task and then be shutdown.
  *
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
-public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
-    private ECSSlaveHelper helper;
-    private final String cloudName;
-    private JenkinsWrapper jenkins;
+class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
-    ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
-                        ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
+    private static final long serialVersionUID = -3167989896315283037L;
+    private transient ECSSlaveHelper helper;
+    private final String cloudName;
+
+    private ECSSlaveImpl(String name, ECSTaskTemplate template, String nodeDescription, String cloudName, String labelStr,
+                 ComputerLauncher launcher, RetentionStrategy rs) throws Descriptor.FormException, IOException {
         super(name,
                 nodeDescription,
                 template.getRemoteFSRoot(),
@@ -58,13 +59,6 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
                 new ArrayList<>());
         helper =new ECSSlaveHelper(this,name,template);
         this.cloudName=cloudName;
-        this.jenkins=new JenkinsWrapper();
-    }
-
-
-    void init(JenkinsWrapper wrapper)
-    {
-        this.jenkins=wrapper;
     }
 
     private String getCloudName() {
@@ -92,11 +86,11 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
     }
 
     @Override
-    protected void _terminate(TaskListener listener) throws IOException, InterruptedException { helper._terminate(listener); }
+    protected void _terminate(TaskListener listener) throws IOException { helper.terminate(); }
 
     @Override
     public ECSCloud getCloud() {
-        Cloud cloud = jenkins.getJenkinsInstance().getCloud(getCloudName());
+        Cloud cloud = JenkinsWrapper.getInstance().getCloud(getCloudName());
         if (cloud instanceof ECSCloud) {
             return (ECSCloud) cloud;
         } else {
@@ -116,23 +110,9 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
 
     public static class Builder {
 
-        private String name;
-        private String nodeDescription;
         private ECSTaskTemplate ecsTaskTemplate;
         private ECSCloud cloud;
-        private String label;
-        private ComputerLauncher computerLauncher;
-        private RetentionStrategy retentionStrategy;
 
-        public Builder name(String name) {
-            this.name = name;
-            return this;
-        }
-
-        Builder nodeDescription(String nodeDescription) {
-            this.nodeDescription = nodeDescription;
-            return this;
-        }
 
         Builder ecsTaskTemplate(ECSTaskTemplate ecsTaskTemplate) {
             this.ecsTaskTemplate = ecsTaskTemplate;
@@ -144,31 +124,32 @@ public class ECSSlaveImpl extends AbstractCloudSlave implements ECSSlave {
             return this;
         }
 
-        Builder label(String label) {
-            this.label = label;
-            return this;
-        }
-
-        Builder computerLauncher(ComputerLauncher computerLauncher) {
-            this.computerLauncher = computerLauncher;
-            return this;
-        }
-
-        Builder retentionStrategy(RetentionStrategy retentionStrategy) {
-            this.retentionStrategy = retentionStrategy;
-            return this;
-        }
 
         ECSSlaveImpl build() throws IOException, Descriptor.FormException {
             Validate.notNull(ecsTaskTemplate);
             Validate.notNull(cloud);
-            return new ECSSlaveImpl(name == null ? ECSSlaveHelper.getSlaveName(ecsTaskTemplate) : name,
+            return new ECSSlaveImpl(ECSSlaveHelper.getSlaveName(ecsTaskTemplate),
                     ecsTaskTemplate,
-                    nodeDescription == null ? ecsTaskTemplate.getTemplateName() : nodeDescription,
+                    ecsTaskTemplate.getTemplateName(),
                     cloud.name,
-                    label == null ? ecsTaskTemplate.getLabel() : label,
-                    computerLauncher == null ? new ECSLauncher() : computerLauncher,
+                    ecsTaskTemplate.getLabel(),
+                    new ECSLauncher(false),
                     new ECSRetentionStrategy(ecsTaskTemplate.isSingleRunTask(), ecsTaskTemplate.getIdleTerminationMinutes()));
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false;}
+        if (!super.equals(o)) {return false;}
+        ECSSlaveImpl ecsSlave = (ECSSlaveImpl) o;
+        return cloudName.equals(ecsSlave.cloudName) && super.equals(ecsSlave);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(super.hashCode(), cloudName);
     }
 }

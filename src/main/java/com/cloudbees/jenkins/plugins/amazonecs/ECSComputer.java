@@ -1,9 +1,8 @@
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
 
 public interface ECSComputer {
-    ECSSlave getNode();
+    ECSSlave getECSNode();
     String getName();
     String getJnlpMac();
     boolean isOnline();

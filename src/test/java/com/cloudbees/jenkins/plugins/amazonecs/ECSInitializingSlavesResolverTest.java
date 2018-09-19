@@ -4,14 +4,10 @@ import hudson.model.Label;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
-
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static com.cloudbees.jenkins.plugins.amazonecs.ECSSlaveHelper.State.*;
 
 public class ECSInitializingSlavesResolverTest {
 
@@ -21,9 +17,21 @@ public class ECSInitializingSlavesResolverTest {
 
         ECSSlave slave=mock(ECSSlave.class);
         Mockito.when(slave.getNodeName()).thenReturn("InitializingNode");
-        ECSTaskTemplate testTemplate=new ECSTaskTemplate("maven-java","cloudbees/maven-java","FARGATE",null,2048,0,2048,false,null,null,null,null,null).withLabel("maven-java").withSecurityGroups("secGroup").withSubnets("subnets").withPrivileged(true).withSingleRunTask(true).withIdleTerminationMinutes(1);
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
+                .withTemplateName("maven-java")
+                .withImage("cloudbees/maven-java")
+                .withLaunchType("FARGATE")
+                .withMemory(2048)
+                .withCpu(2048)
+                .withAssignPublicIp(true)
+                .withLabel("maven-java")
+                .withSecurityGroups("secGroup")
+                .withSubnets("subnets")
+                .withPrivileged(true)
+                .withSingleRunTask(true)
+                .withIdleTerminationMinutes(1);
         ECSSlaveHelper helper=new ECSSlaveHelper(slave,"maven-java",testTemplate);
-        helper.setTaskState(ECSSlaveHelper.State.Initializing);
+        helper.setTaskState(INITIALIZING);
         Mockito.when(slave.getHelper()).thenReturn(helper);
         Label label=mock(Label.class);
 
@@ -40,9 +48,21 @@ public class ECSInitializingSlavesResolverTest {
 
         ECSSlave slave=mock(ECSSlave.class);
         Mockito.when(slave.getNodeName()).thenReturn("InitializingNode");
-        ECSTaskTemplate testTemplate=new ECSTaskTemplate("maven-java","cloudbees/maven-java","FARGATE",null,2048,0,2048,false,null,null,null,null,null).withLabel("maven-java").withSecurityGroups("secGroup").withSubnets("subnets").withPrivileged(true).withSingleRunTask(true).withIdleTerminationMinutes(1);
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
+                .withTemplateName("maven-java")
+                .withImage("cloudbees/maven-java")
+                .withLaunchType("FARGATE")
+                .withMemory(2048)
+                .withCpu(2048)
+                .withAssignPublicIp(true)
+                .withLabel("maven-java")
+                .withSecurityGroups("secGroup")
+                .withSubnets("subnets")
+                .withPrivileged(true)
+                .withSingleRunTask(true)
+                .withIdleTerminationMinutes(1);
         ECSSlaveHelper helper=new ECSSlaveHelper(slave,"maven-java",testTemplate);
-        helper.setTaskState(ECSSlaveHelper.State.Running);
+        helper.setTaskState(RUNNING);
         Mockito.when(slave.getHelper()).thenReturn(helper);
         Label label=mock(Label.class);
 

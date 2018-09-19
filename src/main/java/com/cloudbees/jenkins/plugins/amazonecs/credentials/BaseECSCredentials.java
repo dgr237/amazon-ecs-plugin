@@ -23,25 +23,18 @@
  *
  */
 
-package com.cloudbees.jenkins.plugins.amazonecs;
+package com.cloudbees.jenkins.plugins.amazonecs.credentials;
 
-import hudson.slaves.AbstractCloudComputer;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 
 /**
- * Amazon EC2 Container Service implementation of {@link hudson.model.Computer}
- *
- * This Computer should only handle a single task and then be shutdown.
- *
- * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
+ * @author stephenc
+ * @since 08/03/2013 13:06
  */
-public class ECSComputerImpl extends AbstractCloudComputer<ECSSlaveImpl> implements ECSComputer {
-    ECSComputerImpl(ECSSlaveImpl slave) {
-        super(slave);
-    }
-
-
-    @Override
-    public ECSSlave getECSNode() {
-        return getNode();
+abstract class BaseECSCredentials extends BaseStandardCredentials
+        implements ECSCredentials {
+    BaseECSCredentials(CredentialsScope scope, String id, String description) {
+        super(scope, id, description);
     }
 }

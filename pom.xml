@@ -43,12 +43,12 @@
     <parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>3.12</version>
+		<version>3.4</version>
 		<relativePath />
 	</parent>
 
-	<groupId>com.cloudbees.jenkins.plugins</groupId>
-	<artifactId>amazon-ecs</artifactId>
+	<groupId>net.jpmorgan.cib.cibcl</groupId>
+	<artifactId>jules-ecs-plugin</artifactId>
 	<version>1.18-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 	<name>Amazon EC2 Container Service plugin</name>
@@ -57,91 +57,55 @@
 
 	<properties>
 		<java.level>8</java.level>
-		<jenkins.version>2.121.2</jenkins.version>
+		<jenkins.version>2.73.2</jenkins.version>
 		<no-test-jar>false</no-test-jar>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
 
-	<developers>
-		<developer>
-			<id>pgarbe</id>
-			<name>Philipp Garbe</name>
-			<email>jenkins@garbe.io</email>
-		</developer>
-		<developer>
-			<id>tekkamanendless</id>
-			<name>Douglas Manley</name>
-			<email>doug.manley@gmail.com</email>
-		</developer>
-		<developer>
-			<id>roehrijn</id>
-			<name>Jan Roehrich</name>
-			<email>jan@roehrich.info</email>
-		</developer>
-	</developers>
-
 	<scm>
-		<connection>scm:git:git://github.com/jenkinsci/amazon-ecs-plugin.git</connection>
-		<developerConnection>scm:git:git@github.com:jenkinsci/amazon-ecs-plugin.git</developerConnection>
-		<url>https://github.com/jenkinsci/amazon-ecs-plugin</url>
-		<tag>amazon-ecs-1.12</tag>
+		<connection>scm:git:https://bitbucketdc.jpmchase.net/scm/cibcl/ecs-plugin.git</connection>
+		<developerConnection>scm:git:https://bitbucketdc.jpmchase.net/scm/cibcl/ecs-plugin.git</developerConnection>
 	</scm>
-
-	<repositories>
-		<repository>
-			<id>repo.jenkins-ci.org</id>
-			<url>http://repo.jenkins-ci.org/public/</url>
-		</repository>
-	</repositories>
-	<pluginRepositories>
-		<pluginRepository>
-			<id>repo.jenkins-ci.org</id>
-			<url>http://repo.jenkins-ci.org/public/</url>
-		</pluginRepository>
-	</pluginRepositories>
 
 	<distributionManagement>
 		<repository>
 			<id>repo.jenkins-ci.org</id>
-			<url>http://repo.jenkins-ci.org/releases/</url>
+			<url>https://repo.jpmchase.net/maven/content/repositories/CIBCL-SNAPSHOT</url>
 		</repository>
 		<snapshotRepository>
 			<id>repo.jenkins-ci.org</id>
-			<url>http://repo.jenkins-ci.org/snapshots</url>
+			<url>https://repo.jpmchase.net/maven/content/repositories/CIBCL</url>
 		</snapshotRepository>
 	</distributionManagement>
 
 	<dependencies>
 		<dependency>
-			<groupId>org.jenkins-ci.plugins</groupId>
-			<artifactId>aws-java-sdk</artifactId>
-			<version>1.11.264</version>
-		</dependency>
-		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-core</artifactId>
-			<version>1.11.401</version>
+			<version>1.11.269</version>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-ec2</artifactId>
-			<version>1.11.401</version>
+			<artifactId>aws-java-sdk-ecs</artifactId>
+			<version>1.11.269</version>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-sts</artifactId>
-			<version>1.11.401</version>
+			<version>1.11.269</version>
 		</dependency>
 
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>credentials</artifactId>
-            <version>2.1.16</version>
+            <version>2.1.13</version>
         </dependency>
 
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>credentials-binding</artifactId>
-            <version>1.7</version>
+            <version>1.12</version>
         </dependency>
 		<dependency>
 			<groupId>org.mockito</groupId>

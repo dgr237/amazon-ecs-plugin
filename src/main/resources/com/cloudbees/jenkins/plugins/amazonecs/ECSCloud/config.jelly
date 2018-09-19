@@ -34,24 +34,21 @@
   </f:entry>
 
   <f:entry field="regionName" title="${%Amazon ECS Region Name}" description="AWS regionName for ECS. If not specified, use us-east-1.">
-    <f:select />
+    <f:select default="us-east-1" />
   </f:entry>
 
   <f:entry field="cluster" title="${%ECS Cluster}">
     <f:select />
   </f:entry>
-
-
-
-  <f:advanced>
     <f:entry field="tunnel" title="${%Tunnel connection through}" help="/help/system-config/master-slave/jnlp-tunnel.html">
       <f:textbox />
     </f:entry>
     <f:entry field="jenkinsUrl" title="${%Alternative Jenkins URL}" description="If needed, the Jenkins URL can be overwritten with this property (e.g. to support other HTTP(S) endpoints due to reverse proxies or firewalling). By default the URL from the global Jenkins configuration is used.">
       <f:textbox />
     </f:entry>
-    <f:entry field="slaveTimoutInSeconds" title="${%ECS task creation timeout}" description="Timeout (in second) for ECS task to be created, usefull if you use large docker slave image, because the host will take more time to pull the docker image">
-      <f:textbox />
+  <f:advanced>
+    <f:entry field="slaveTimoutInSeconds" title="${%Agent Connection Timeout}" description="Timeout (in second) for the agent to connect after it is running in ECS">
+      <f:textbox default="60"/>
     </f:entry>
     <f:entry field="maxSlaves" title="${%Max Slaves}" description="Max Slaves to run. A Value of 0 means there is no restriction.">
       <f:textbox clazz="required number" default="0"/>

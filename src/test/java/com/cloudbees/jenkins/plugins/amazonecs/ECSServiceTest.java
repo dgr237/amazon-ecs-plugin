@@ -4,12 +4,8 @@ import com.amazonaws.services.ecs.model.*;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
 import java.util.List;
-
-import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -76,8 +72,21 @@ public class ECSServiceTest {
                 new ContainerInstance().withContainerInstanceArn("Container2").withRemainingResources(new Resource().withName("MEMORY").withIntegerValue(512), new Resource().withName("CPU").withIntegerValue(512)),
                 new ContainerInstance().withContainerInstanceArn("Container3").withRemainingResources(new Resource().withName("MEMORY").withIntegerValue(4096), new Resource().withName("CPU").withIntegerValue(4096)))).when(mockClient).describeContainerInstances(any());
 
-        ECSTaskTemplate testTemplate = new ECSTaskTemplate("maven-java", "cloudbees/maven-java", "EC2", null, 2048, 0, 2048, false, null, null, null, null, null).withLabel("maven-java").withSecurityGroups("secGroup").withSubnets("subnets").withPrivileged(true).withSingleRunTask(true).withIdleTerminationMinutes(1);
-        boolean result = service.areSufficientClusterResourcesAvailable(1, testTemplate, clusterArn);
+        ECSTaskTemplate testTemplate=new ECSTaskTemplate()
+                .withTemplateName("maven-java")
+                .withImage("cloudbees/maven-java")
+                .withLaunchType("FARGATE")
+                .withMemory(2048)
+                .withCpu(2048)
+                .withAssignPublicIp(true)
+                .withLabel("maven-java")
+                .withSecurityGroups("secGroup")
+                .withSubnets("subnets")
+                .withPrivileged(true)
+                .withSingleRunTask(true)
+                .withSlaveLaunchTimeoutSeconds(2)
+                .withIdleTerminationMinutes(1);
+        boolean result = service.areSufficientClusterResourcesAvailable(testTemplate, clusterArn);
         Assert.assertTrue(result);
     }
 }

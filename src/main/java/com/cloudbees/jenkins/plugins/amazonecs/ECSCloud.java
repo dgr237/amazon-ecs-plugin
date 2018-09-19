@@ -25,11 +25,10 @@
 
 package com.cloudbees.jenkins.plugins.amazonecs;
 
-import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
-import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
-import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
+import com.cloudbees.jenkins.plugins.amazonecs.credentials.ECSCredentialsHelper;
+import com.cloudbees.jenkins.plugins.amazonecs.credentials.ECSCredentials;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -38,7 +37,6 @@ import hudson.slaves.Cloud;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -60,20 +58,16 @@ public class ECSCloud extends Cloud {
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
     private static final int DEFAULT_MAX_SLAVES = 0;
     /**
-     * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
+     * Id of the {@link ECSCredentials} used to connect to Amazon ECS
      */
-    @Nonnull
     private String credentialsId;
     private final String cluster;
     private final List<ECSTaskTemplate> templates;
-    private String regionName;
+    private final String regionName;
     private String tunnel;
     private String jenkinsUrl;
     private int slaveTimoutInSeconds;
     private int maxSlaves;
-
-    private ECSService ecsService;
-    private ECSInitializingSlavesResolver initializingSlavesResolver;
 
     @DataBoundConstructor
     public ECSCloud(String name, String cluster, String regionName) {
@@ -87,17 +81,11 @@ public class ECSCloud extends Cloud {
     }
 
     ECSService getEcsService() {
-        if (ecsService == null) {
-            ecsService = new ECSService(credentialsId, regionName);
-        }
-        return ecsService;
+        return JenkinsWrapper.getECSService(credentialsId, regionName);
     }
 
-    ECSInitializingSlavesResolver initializingSlavesResolver() {
-        if (initializingSlavesResolver == null) {
-            initializingSlavesResolver = new ECSInitializingSlavesResolver();
-        }
-        return initializingSlavesResolver;
+    private ECSInitializingSlavesResolver initializingSlavesResolver() {
+        return new ECSInitializingSlavesResolver();
     }
 
     public String getRegionName() {
@@ -211,7 +199,13 @@ public class ECSCloud extends Cloud {
         if (StringUtils.isNotBlank(jenkinsUrl)) {
             this.jenkinsUrl = jenkinsUrl;
         } else {
-            this.jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
+            JenkinsLocationConfiguration config = JenkinsWrapper.getJenkinsLocationConfiguration();
+            if (config != null) {
+                this.jenkinsUrl = config.getUrl();
+            }
+            else {
+                this.jenkinsUrl = "";
+            }
         }
     }
 
@@ -245,15 +239,15 @@ public class ECSCloud extends Cloud {
         try {
             Set<String> allInProvisioning = initializingSlavesResolver().getInitializingECSSlaves(label);
             LOGGER.log(Level.FINE, () -> "Excess Workload : " + excessWorkload);
-            LOGGER.log(Level.FINE, () -> "Initializing ECS Agents : " + allInProvisioning.size());
+            LOGGER.log(Level.FINE, () -> "INITIALIZING ECS Agents : " + allInProvisioning.size());
             int toBeProvisioned = Math.max(0, excessWorkload - allInProvisioning.size());
-            LOGGER.log(Level.INFO, "Excess workload after pending ECS agents: " + toBeProvisioned);
+            LOGGER.log(Level.INFO, "Excess workload after pending ECS agents: {0}", toBeProvisioned);
 
             List<NodeProvisioner.PlannedNode> r = new ArrayList<>();
             final ECSTaskTemplate template = getTemplate(label);
 
             for (int i = 1; i <= toBeProvisioned; i++) {
-                if (!getEcsService().checkIfAdditionalSlaveCanBeProvisioned(cluster, template, maxSlaves, slaveTimoutInSeconds * 1000)) {
+                if (!getEcsService().checkIfAdditionalSlaveCanBeProvisioned(cluster, template, maxSlaves)) {
                     break;
                 }
                 LOGGER.log(Level.INFO, "Will provision {0}, for label: {1}", new Object[]{template.getDisplayName(), label});
@@ -272,11 +266,6 @@ public class ECSCloud extends Cloud {
     public static class DescriptorImpl extends Descriptor<Cloud> {
 
         private static final String CLOUD_NAME_PATTERN = "[a-z|A-Z|0-9|_|-]{1,127}";
-        private JenkinsWrapper jenkins=new JenkinsWrapper();
-
-        void init(JenkinsWrapper wrapper) {
-            jenkins = wrapper;
-        }
 
         @Override
         @Nonnull
@@ -285,7 +274,7 @@ public class ECSCloud extends Cloud {
         }
 
         public ListBoxModel doFillCredentialsIdItems() {
-            return AWSCredentialsHelper.doFillCredentialsIdItems(jenkins.getJenkinsInstance());
+            return ECSCredentialsHelper.doFillCredentialsIdItems(JenkinsWrapper.getInstance());
         }
 
         public ListBoxModel doFillRegionNameItems() {
@@ -305,13 +294,9 @@ public class ECSCloud extends Cloud {
                     options.add(arn);
                 }
                 return options;
-            } catch (AmazonClientException e) {
+            } catch (RuntimeException e) {
                 // missing credentials will throw an "AmazonClientException: Unable to load AWS credentials from any provider in the chain"
                 LOGGER.log(Level.INFO, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName + ":" + e);
-                LOGGER.log(Level.FINE, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName, e);
-                return new ListBoxModel();
-            } catch (RuntimeException e) {
-                LOGGER.log(Level.INFO, "Exception searching clusters for credentials=" + credentialsId + ", regionName=" + regionName, e);
                 return new ListBoxModel();
             }
         }
