@@ -28,7 +28,8 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsHelper;
-import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsImpl;
+import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials;
+
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -58,11 +59,13 @@ public class ECSCloud extends Cloud {
     private static final int DEFAULT_SLAVE_TIMEOUT = 900;
     private static final int DEFAULT_MAX_SLAVES = 0;
     /**
-     * Id of the {@link AWSCredentialsImpl} used to connect to Amazon ECS
+     * Id of the {@link AmazonWebServicesCredentials} used to connect to Amazon ECS
      */
+
     private String credentialsId;
+
     private final String cluster;
-    private final List<ECSTaskTemplate> templates;
+    private List<ECSTaskTemplate> templates;
     private final String regionName;
     private String tunnel;
     private String jenkinsUrl;
